@@ -233,25 +233,18 @@ The storage type of ``elemwise_mul`` output depends on storage types of inputs
                                 return std::vector<ResourceRequest>{ResourceRequest::kTempSpace};
                               })
 .add_alias("_mul").add_alias("_Mul")
-.set_attr<nnvm::FGradient>("FGradient", ElemwiseGradUseIn{"_backward_mul"});
-
-NNVM_REGISTER_OP(_backward_mul)
-.set_num_inputs(3)
-.set_num_outputs(2)
-.set_attr<nnvm::TIsBackward>("TIsBackward", true)
-.set_attr<nnvm::FInplaceOption>("FInplaceOption",
-                                [](const NodeAttrs &attrs) {
-                                  return std::vector<std::pair<int, int> >{{0, 1}};
-                                })
-.set_attr<FInferStorageType>("FInferStorageType", ElemwiseBinaryOp::BackwardUseInStorageType)
-.set_attr<FResourceRequest>("FResourceRequest",  /* For Sparse CSR */
-                              [](const NodeAttrs& attrs) {
-                                return std::vector<ResourceRequest>{ResourceRequest::kTempSpace};
-                              })
-.set_attr<FCompute>("FCompute<cpu>", ElemwiseBinaryOp::BackwardUseIn<
-  cpu, mshadow_op::right, mshadow_op::left>)
-.set_attr<FComputeEx>("FComputeEx<cpu>", ElemwiseBinaryOp::BackwardUseInEx<
-  cpu, mshadow_op::right, mshadow_op::left>);
+.set_attr<nnvm::FGradient>("FGradient",
+  [](const nnvm::NodePtr& n, const std::vector<nnvm::NodeEntry>& ograds) {
+    // z = x * y
+    // f(x, y) = x * y
+    // dx = z_grad * y, dy = z_grad * x
+    std::vector<nnvm::NodeEntry> ret;
+    ret.emplace_back(MakeNode("elemwise_mul", n->attrs.name + "_backward_grad_x",
+                              {ograds[0], n->inputs[1]}, nullptr, &n));
+    ret.emplace_back(MakeNode("elemwise_mul", n->attrs.name + "_backward_grad_y",
+                              {ograds[0], n->inputs[0]}, nullptr, &n));
+    return ret;
+});
 
 MXNET_OPERATOR_REGISTER_BINARY_WITH_SPARSE_CPU_DR(elemwise_div, op::mshadow_op::div)
 MXNET_ADD_SPARSE_OP_ALIAS(elemwise_div)
@@ -261,20 +254,25 @@ The storage type of ``elemwise_div`` output is always dense
 
 )code")
 .add_alias("_div").add_alias("_Div")
-.set_attr<nnvm::FGradient>("FGradient", ElemwiseGradUseIn{"_backward_div"});
+.set_attr<nnvm::FGradient>("FGradient",
+  [](const nnvm::NodePtr& n, const std::vector<nnvm::NodeEntry>& ograds) {
+    // z = x / y
+    // f(x, y) = x / y
+    // dx = z_grad / y, dy = z_grad * x * -1/y^2
+    auto r_y = MakeNode("reciprocal", n->attrs.name + "_reciprocal_y",
+                        {n->inputs[1]}, nullptr, &n);
 
-NNVM_REGISTER_OP(_backward_div)
-.set_num_inputs(3)
-.set_num_outputs(2)
-.set_attr<nnvm::TIsBackward>("TIsBackward", true)
-.set_attr<nnvm::FInplaceOption>("FInplaceOption",
-                                [](const NodeAttrs &attrs) {
-                                  return std::vector<std::pair<int, int> >{{0, 1}};
-                                })
-.set_attr<FCompute>("FCompute<cpu>", ElemwiseBinaryOp::BackwardUseIn<
-  cpu, mshadow_op::div_grad, mshadow_op::div_rgrad>)
-.set_attr<FComputeEx>("FComputeEx<cpu>", ElemwiseBinaryOp::BackwardUseInEx<
-  cpu, mshadow_op::div_grad, mshadow_op::div_rgrad>);
+    // Order Matters : First should be z_grad followed by y.
+    auto grad_r_y = MakeNode("_backward_reciprocal", n->attrs.name + "_backward_reciprocal_y",
+                        {ograds[0], n->inputs[1]}, nullptr, &n);
+
+    std::vector<nnvm::NodeEntry> ret;
+    ret.emplace_back(MakeNode("elemwise_mul", n->attrs.name + "_backward_grad_x",
+                              {ograds[0], nnvm::NodeEntry{r_y}}, nullptr, &n));
+    ret.emplace_back(MakeNode("elemwise_mul", n->attrs.name + "_backward_grad_y",
+                              {n->inputs[0], nnvm::NodeEntry{grad_r_y}}, nullptr, &n));
+    return ret;
+});
 
 MXNET_OPERATOR_REGISTER_BINARY(_mod)
 .add_alias("_Mod")
