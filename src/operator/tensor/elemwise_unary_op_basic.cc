@@ -25,6 +25,7 @@
 #include "elemwise_unary_op.h"
 #include "./elemwise_binary_op-inl.h"
 #include "../nn/mkldnn/mkldnn_ops-inl.h"
+#include "../../nnvm/node_op_util.h"
 
 namespace mxnet {
 namespace op {
@@ -177,7 +178,8 @@ NNVM_REGISTER_OP(_backward_hard_sigmoid)
   [](const NodeAttrs& attrs){
     return std::vector<bool>{true};
   })
-.set_attr<FCompute>("FCompute<cpu>", HardSigmoidBackward<cpu>);
+.set_attr<FCompute>("FCompute<cpu>", HardSigmoidBackward<cpu>)
+.set_attr<nnvm::FGradient>("FGradient", MakeZeroGradNodes);
 
 // softsign
 MXNET_OPERATOR_REGISTER_UNARY(softsign)
@@ -194,7 +196,35 @@ The storage type of ``softsign`` output is always dense
 
 MXNET_OPERATOR_REGISTER_BINARY(_backward_softsign)
 .set_attr<FCompute>("FCompute<cpu>", ElemwiseBinaryOp::Compute<cpu,
-  unary_bwd<mshadow_op::softsign_grad> >);
+  unary_bwd<mshadow_op::softsign_grad> >)
+.set_attr<nnvm::FGradient>("FGradient",
+    [](const nnvm::NodePtr& n, const std::vector<nnvm::NodeEntry>& ograds) {
+      // NodeEntry{n} : dL/dy * f'(x)
+      // n->inputs[0] : dL/dy
+      // n->inputs[1] : x (ElemwiseGradUseIn)
+      // ograds[0] : head_grads (dL/dx_grad)
+      // y = f(x) = softsign(x)
+      // f'(x) = dy/dx = 1/(1 + |x|)^2
+      // f''(x) = (-2/|x|) * softsign(x) * f'(x) = -2*x/(|x|*(1 + |x|)^3)
+      auto dydx = n->inputs[0];
+      auto x = n->inputs[1];
+      auto dldy_mul_dydx = nnvm::NodeEntry{n};
+      auto op = mxnet::util::NodeOpGen{n};
+
+      auto dldy = op.div(dldy_mul_dydx, dydx);
+      auto abs_x = op.abs(x);
+      auto r_abs_x = op.reciprocal(abs_x);
+      auto neg_two_r_abs_x = op.mul(-2.0, r_abs_x);
+      auto softsign_x = MakeNode("softsign", n->attrs.name + "_softsign_x",
+                              {nnvm::NodeEntry{x}}, nullptr, &n);
+      auto softsign_mul_dydx = op.mul(nnvm::NodeEntry{softsign_x}, dldy_mul_dydx);
+      auto grad_grad_x = op.mul(softsign_mul_dydx, neg_two_r_abs_x);
+
+      std::vector<nnvm::NodeEntry> ret;
+      ret.emplace_back(op.mul(ograds[0], dldy));
+      ret.emplace_back(op.mul(ograds[0], grad_grad_x));
+      return ret;
+  });
 
 // copy
 static void CopyEx(const nnvm::NodeAttrs& attrs,
