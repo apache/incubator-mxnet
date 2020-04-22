@@ -29,7 +29,7 @@ from ....metric import CompositeEvalMetric, EvalMetric
 from ....metric import Loss as metric_loss
 from .utils import _check_metrics
 
-__all__ = ['TrainBegin', 'TrainEnd', 'EpochBegin', 'EpochEnd', 'BatchBegin', 'BatchEnd',
+__all__ = ['TrainBeginMixin', 'TrainEndMixin', 'EpochBeginMixin', 'EpochEndMixin', 'BatchBeginMixin', 'BatchEndMixin',
            'StoppingHandler', 'MetricHandler', 'ValidationHandler',
            'LoggingHandler', 'CheckpointHandler', 'EarlyStoppingHandler', 'GradientUpdateHandler']
 
@@ -49,37 +49,37 @@ def _check_event_handlers(handlers):
     return handlers
 
 
-class TrainBegin(EventHandler):
+class TrainBeginMixin(EventHandler):
     def train_begin(self, estimator, *args, **kwargs):
         pass
 
 
-class TrainEnd(EventHandler):
+class TrainEndMixin(EventHandler):
     def train_end(self, estimator, *args, **kwargs):
         pass
 
 
-class EpochBegin(EventHandler):
+class EpochBeginMixin(EventHandler):
     def epoch_begin(self, estimator, *args, **kwargs):
         pass
 
 
-class EpochEnd(EventHandler):
+class EpochEndMixin(EventHandler):
     def epoch_end(self, estimator, *args, **kwargs):
         return False
 
 
-class BatchBegin(EventHandler):
+class BatchBeginMixin(EventHandler):
     def batch_begin(self, estimator, *args, **kwargs):
         pass
 
 
-class BatchEnd(EventHandler):
+class BatchEndMixin(EventHandler):
     def batch_end(self, estimator, *args, **kwargs):
         return False
 
 
-class StoppingHandler(TrainBegin, BatchEnd, EpochEnd):
+class StoppingHandler(TrainBeginMixin, BatchEndMixin, EpochEndMixin):
     """Stop conditions to stop training
     Stop training if maximum number of batches or epochs
     reached.
@@ -119,7 +119,7 @@ class StoppingHandler(TrainBegin, BatchEnd, EpochEnd):
         return self.stop_training
 
 
-class MetricHandler(EpochBegin, BatchEnd):
+class MetricHandler(EpochBeginMixin, BatchEndMixin):
     """Metric Handler that update metric values at batch end
 
     :py:class:`MetricHandler` takes model predictions and true labels
@@ -157,7 +157,7 @@ class MetricHandler(EpochBegin, BatchEnd):
                 metric.update(label, pred)
 
 
-class ValidationHandler(TrainBegin, BatchEnd, EpochEnd):
+class ValidationHandler(TrainBeginMixin, BatchEndMixin, EpochEndMixin):
     """Validation Handler that evaluate model on validation dataset
 
     :py:class:`ValidationHandler` takes validation dataset, an evaluation function,
@@ -223,7 +223,7 @@ class ValidationHandler(TrainBegin, BatchEnd, EpochEnd):
                          event_handlers=self.event_handlers)
 
 
-class LoggingHandler(TrainBegin, TrainEnd, EpochBegin, EpochEnd, BatchBegin, BatchEnd):
+class LoggingHandler(TrainBeginMixin, TrainEndMixin, EpochBeginMixin, EpochEndMixin, BatchBeginMixin, BatchEndMixin):
     """Basic Logging Handler that applies to every Gluon estimator by default.
 
     :py:class:`LoggingHandler` logs hyper-parameters, training statistics,
@@ -333,7 +333,7 @@ class LoggingHandler(TrainBegin, TrainEnd, EpochBegin, EpochEnd, BatchBegin, Bat
         self.batch_index = 0
 
 
-class CheckpointHandler(TrainBegin, BatchEnd, EpochEnd):
+class CheckpointHandler(TrainBeginMixin, BatchEndMixin, EpochEndMixin):
     """Save the model after user define period
 
     :py:class:`CheckpointHandler` saves the network architecture after first batch if the model
@@ -611,7 +611,7 @@ class CheckpointHandler(TrainBegin, BatchEnd, EpochEnd):
         return max_iter
 
 
-class EarlyStoppingHandler(TrainBegin, EpochEnd, TrainEnd):
+class EarlyStoppingHandler(TrainBeginMixin, EpochEndMixin, TrainEndMixin):
     """Early stop training if monitored value is not improving
 
     Parameters
@@ -719,7 +719,7 @@ class EarlyStoppingHandler(TrainBegin, EpochEnd, TrainEnd):
                                   'early stopping due to %s not improving',
                                   self.stopped_epoch, self.monitor.get()[0])
 
-class GradientUpdateHandler(BatchEnd):
+class GradientUpdateHandler(BatchEndMixin):
     """Gradient Update Handler that apply gradients on network weights
 
     :py:class:`GradientUpdateHandler` takes the priority level. It updates weight parameters

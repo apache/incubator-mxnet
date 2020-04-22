@@ -36,7 +36,7 @@ import mxnet as mx
 from mxnet import gluon
 from mxnet.gluon.model_zoo import vision
 from mxnet.gluon.contrib.estimator import estimator
-from mxnet.gluon.contrib.estimator.event_handler import TrainBegin, TrainEnd, EpochEnd, CheckpointHandler
+from mxnet.gluon.contrib.estimator.event_handler import TrainBeginMixin, TrainEndMixin, EpochEndMixin, CheckpointHandler
 
 gpu_count = mx.context.num_gpus()
 ctx = [mx.gpu(i) for i in range(gpu_count)] if gpu_count > 0 else mx.cpu()
@@ -164,7 +164,7 @@ There are also some default utility handlers that will be added to your estimato
 You can create these utility handlers with different configurations and pass to estimator. This will override the default handler configuration.
 You can create a custom handler by inheriting one or multiple
 [base event handlers](https://github.com/apache/incubator-mxnet/blob/master/python/mxnet/gluon/contrib/estimator/event_handler.py#L32)
- including: `TrainBegin`, `TrainEnd`, `EpochBegin`, `EpochEnd`, `BatchBegin`, `BatchEnd`.
+ including: `TrainBeginMixin`, `TrainEndMixin`, `EpochBeginMixin`, `EpochEndMixin`, `BatchBeginMixin`, `BatchEndMixin`.
 
 
 ### Custom Event Handler
@@ -175,7 +175,7 @@ Our custom event handler is a simple one: record the loss values at the end of e
 Note: For each of the method, the `Estimator` object is passed along, so you can access training metrics.
 
 ```python
-class LossRecordHandler(TrainBegin, TrainEnd, EpochEnd):
+class LossRecordHandler(TrainBeginMixin, TrainEndMixin, EpochEndMixin):
     def __init__(self):
         super(LossRecordHandler, self).__init__()
         self.loss_history = {}

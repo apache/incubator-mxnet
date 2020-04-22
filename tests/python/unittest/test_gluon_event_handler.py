@@ -50,7 +50,7 @@ class TestAxisArrayDataset(Dataset):
     def __len__(self):
         return self._length
 
-class TestHandler(EpochEnd):
+class TestHandler(EpochEndMixin):
     def __init__(self):
         pass
 
@@ -195,9 +195,9 @@ def test_logging():
 
 
 def test_custom_handler():
-    class CustomStopHandler(event_handler.TrainBegin,
-                            event_handler.BatchEnd,
-                            event_handler.EpochEnd):
+    class CustomStopHandler(event_handler.TrainBeginMixin,
+                            event_handler.BatchEndMixin,
+                            event_handler.EpochEndMixin):
         def __init__(self, batch_stop=None, epoch_stop=None):
             self.batch_stop = batch_stop
             self.epoch_stop = epoch_stop

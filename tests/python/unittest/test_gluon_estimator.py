@@ -278,12 +278,12 @@ def test_context():
 
 
 def test_categorize_handlers():
-    class CustomHandler1(TrainBegin):
+    class CustomHandler1(TrainBeginMixin):
 
         def train_begin(self):
             print("custom train begin")
 
-    class CustomHandler2(EpochBegin, BatchBegin, TrainEnd):
+    class CustomHandler2(EpochBeginMixin, BatchBeginMixin, TrainEndMixin):
 
         def epoch_begin(self):
             print("custom epoch begin")
@@ -294,7 +294,7 @@ def test_categorize_handlers():
         def train_end(self):
             print("custom train end")
 
-    class CustomHandler3(EpochBegin, BatchBegin, BatchEnd, TrainEnd):
+    class CustomHandler3(EpochBeginMixin, BatchBeginMixin, BatchEndMixin, TrainEndMixin):
 
         def epoch_begin(self):
             print("custom epoch begin")

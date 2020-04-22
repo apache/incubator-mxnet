@@ -25,7 +25,8 @@ import sys
 import warnings
 
 from .event_handler import MetricHandler, ValidationHandler, LoggingHandler, StoppingHandler, GradientUpdateHandler
-from .event_handler import TrainBegin, EpochBegin, BatchBegin, BatchEnd, EpochEnd, TrainEnd
+from .event_handler import TrainBeginMixin, EpochBeginMixin, BatchBeginMixin, \
+                            BatchEndMixin, EpochEndMixin, TrainEndMixin
 from .event_handler import _check_event_handlers
 from .utils import _check_metrics, _suggest_metric_for_loss, _check_handler_metric_ref
 from ...data import DataLoader
@@ -495,16 +496,16 @@ class Estimator(object):
         epoch_end = []
         train_end = []
         for handler in event_handlers:
-            if isinstance(handler, TrainBegin):
+            if isinstance(handler, TrainBeginMixin):
                 train_begin.append(handler)
-            if isinstance(handler, EpochBegin):
+            if isinstance(handler, EpochBeginMixin):
                 epoch_begin.append(handler)
-            if isinstance(handler, BatchBegin):
+            if isinstance(handler, BatchBeginMixin):
                 batch_begin.append(handler)
-            if isinstance(handler, BatchEnd):
+            if isinstance(handler, BatchEndMixin):
                 batch_end.append(handler)
-            if isinstance(handler, EpochEnd):
+            if isinstance(handler, EpochEndMixin):
                 epoch_end.append(handler)
-            if isinstance(handler, TrainEnd):
+            if isinstance(handler, TrainEndMixin):
                 train_end.append(handler)
         return train_begin, epoch_begin, batch_begin, batch_end, epoch_end, train_end
