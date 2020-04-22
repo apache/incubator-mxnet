@@ -207,12 +207,11 @@ class TestNode(unittest.TestCase):
                 npt.assert_almost_equal(np_out, mxnet_out, decimal=4)
 
     def test_exports(self):
-        input_shape = (2,1,3,1)
         for test in export_test_cases:
-            test_name, onnx_name, mx_op, attrs = test
-            input_sym = mx.sym.var('data')
-            outsym = mx_op(input_sym, **attrs)
-            converted_model = onnx_mxnet.export_model(outsym, {}, [input_shape], np.float32,
+            test_name, onnx_name, mx_op, input_shapes, attrs = test
+            input_syms = [mx.sym.var('data' + str(i)) for i in range(len(input_shapes))]
+            outsym = mx_op(*input_syms, **attrs)
+            converted_model = onnx_mxnet.export_model(outsym, {}, input_shapes, np.float32,
                                                       onnx_file_path=outsym.name + ".onnx")
             model = load_model(converted_model)
             checker.check_model(model)
@@ -286,10 +285,20 @@ import_test_cases = [
     ("test_lpnormalization_ord2", "LpNormalization", [get_rnd([5, 3, 3, 2])], np.linalg.norm, {'ord':2, 'axis':1})
 ]
 
-# test_case = ("test_case_name", "ONNX_op_name", mxnet_op, attribute map)
+# test_case = ("test_case_name", "ONNX_op_name", mxnet_op, input_shapes, attribute map)
 export_test_cases = [
-    ("test_expand", "Expand", mx.sym.broadcast_to, {'shape': (2,1,3,1)}),
-    ("test_tile", "Tile", mx.sym.tile, {'reps': (2,3)})
+    ("test_expand", "Expand", mx.sym.broadcast_to, [(2,1,3,1)], {'shape': (2,1,3,1)}),
+    ("test_tile", "Tile", mx.sym.tile, [(2,1,3,1)], {'reps': (2,3)}),
+    ("test_topk", "TopK", mx.sym.topk, [(2, 10, 2)], {'k': 3, 'axis': 1, 'ret_typ': 'both', 'dtype': np.int64}),
+    ("test_slice_axis", "Slice", mx.sym.slice_axis, [(2, 10, 2)], {'begin': 3, 'end': 7, 'axis': 1}),
+    ("test_arange", "ValueInfo", mx.sym.arange, [], {'start':2, 'stop': 10, 'step': 2}),
+    ("test_zeros_like", "Expand", mx.sym.zeros_like, [(2, 1, 3, 1)], {}),
+    ("test_ones_like", "Expand", mx.sym.ones_like, [(2, 1, 3, 1)], {}),
+    ("test_lesser_scalar", "Less", mx.sym._internal._lesser_scalar, [(2, 1, 3, 1)], {'scalar': 0}),
+    ("test_greater_scalar", "Greater", mx.sym._internal._greater_scalar, [(2, 1, 3, 1)], {'scalar': 0}),
+    ("test_equal_scalar", "Equal", mx.sym._internal._equal_scalar, [(2, 1, 3, 1)], {'scalar': 0}),
+    ("test_slice_like", "Slice", mx.sym.slice_like, [(2, 10, 20), (7, 5, 3)], {'axes': (1, 2)}),
+    ("test_where", "Where", mx.sym.where, [(2, 2), (2, 2), (2, 2)], {}),
 ]
 
 if __name__ == '__main__':
