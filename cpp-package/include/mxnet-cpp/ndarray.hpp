@@ -34,6 +34,7 @@
 #include "dmlc/logging.h"
 #include "mxnet-cpp/ndarray.h"
 #include "mxnet-cpp/operator.h"
+#include "mxnet/ndarray.h"
 
 namespace mxnet {
 namespace cpp {
@@ -403,6 +404,9 @@ inline mx_float NDArray::At(size_t index) const {
 }
 
 inline size_t NDArray::Size() const {
+  NDArrayHandle handle = GetHandle();
+  if (static_cast<mxnet::NDArray*>(handle)->is_none())
+    return 0u;
   size_t ret = 1;
   for (auto &i : GetShape()) ret *= i;
   return ret;
