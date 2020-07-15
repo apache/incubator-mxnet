@@ -27,6 +27,7 @@ import pytest
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+mx.reset_np()
 
 @with_seed()
 @pytest.mark.parametrize('model_name', [

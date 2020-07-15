@@ -20,6 +20,8 @@ import mxnet as mx
 from common import models
 import pytest
 
+mx.reset_np()
+
 def test_mlp2_infer_shape():
     # Build MLP
     out = models.mlp2()

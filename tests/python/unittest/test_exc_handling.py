@@ -25,6 +25,7 @@ from mxnet.base import MXNetError
 from mxnet.test_utils import assert_exception, default_context, set_default_context, use_np
 import pytest
 
+mx.reset_np()
 
 @with_seed()
 @pytest.mark.skipif(os.environ.get('MXNET_ENGINE_TYPE') == 'NaiveEngine',

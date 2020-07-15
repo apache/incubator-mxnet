@@ -38,6 +38,8 @@ import json
 import random
 import tempfile
 
+mx.reset_np()
+
 @with_seed()
 def test_parameter():
     p = gluon.Parameter('weight', shape=(10, 10))
@@ -192,11 +194,11 @@ def test_parameter_str():
 
     net = Net()
     lines = str(net.collect_params()).splitlines()
-    
+
     assert 'dense0.weight' in lines[0]
     assert '(10, 5)' in lines[0]
     assert 'float32' in lines[0]
-    
+
 
 @with_seed()
 def test_collect_parameters():
@@ -1735,7 +1737,7 @@ def test_op_hook_output_names():
     model.add(mx.gluon.nn.AvgPool1D())
     model.initialize()
     model.hybridize()
-    check_name(model, [model[0].name + '_fwd_data', model[0].name + '_fwd_output'], 
+    check_name(model, [model[0].name + '_fwd_data', model[0].name + '_fwd_output'],
                expected_opr_names=["Pooling"], monitor_all=True)
 
     # stack two layers and test

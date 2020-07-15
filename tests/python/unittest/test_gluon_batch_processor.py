@@ -29,6 +29,8 @@ from mxnet.gluon.contrib.estimator.event_handler import *
 from mxnet.gluon.contrib.estimator.batch_processor import BatchProcessor
 import pytest
 
+mx.reset_np()
+
 def _get_test_network():
     net = nn.Sequential()
     net.add(nn.Dense(4, activation='relu', flatten=False))

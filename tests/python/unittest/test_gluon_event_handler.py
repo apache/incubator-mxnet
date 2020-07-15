@@ -34,6 +34,8 @@ try:
 except ImportError:
     from io import StringIO
 
+mx.reset_np()
+
 class AxisArrayDataset(Dataset):
     def __init__(self, * args):
         self._length = len(args[1])

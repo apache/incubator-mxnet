@@ -30,6 +30,8 @@ from common import assertRaises, setup_module, with_seed, teardown_module, \
 
 import numpy as np
 
+mx.reset_np()
+
 @with_seed()
 def test_to_tensor():
     # 3D Input

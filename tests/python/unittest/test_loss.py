@@ -22,6 +22,7 @@ from mxnet.test_utils import assert_almost_equal, default_context
 from common import setup_module, with_seed, teardown_module, xfail_when_nonstandard_decimal_separator
 import unittest
 
+mx.reset_np()
 
 @xfail_when_nonstandard_decimal_separator
 @with_seed()

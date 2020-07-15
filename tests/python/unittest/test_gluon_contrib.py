@@ -28,6 +28,7 @@ from mxnet.test_utils import almost_equal, default_context, assert_almost_equal,
 from common import setup_module, with_seed, teardown_module
 import numpy as np
 
+mx.reset_np()
 
 def check_rnn_cell(cell, in_shape=(10, 50), out_shape=(10, 100), begin_state=None):
     inputs = [mx.sym.Variable('rnn_t%d_data'%i) for i in range(3)]

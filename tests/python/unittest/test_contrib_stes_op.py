@@ -20,6 +20,7 @@ import mxnet as mx
 from mxnet import nd, autograd, gluon
 from mxnet.test_utils import default_context
 
+mx.reset_np()
 
 class RoundSTENET(gluon.HybridBlock):
     def __init__(self, w_init, **kwargs):

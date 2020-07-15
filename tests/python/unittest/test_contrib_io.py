@@ -15,11 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import mxnet as mx
 import mxnet.ndarray as nd
 from mxnet.gluon.data.vision.datasets import *
 from mxnet.gluon.data.dataloader import *
 from mxnet.contrib.io import *
 from mxnet.test_utils import *
+
+mx.reset_np()
 
 def test_contrib_DataLoaderIter():
     def test_mnist_batches(batch_size, expected, last_batch='discard'):

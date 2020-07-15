@@ -44,6 +44,8 @@ def test_create_np_param():
         for k, v in params.items():
             assert type(v.data()) is expected_type
 
+    mx.reset_np()
+
     class TestBlock1(gluon.HybridBlock):
         def __init__(self):
             super(TestBlock1, self).__init__()

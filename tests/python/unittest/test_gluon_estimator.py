@@ -28,6 +28,7 @@ from mxnet.gluon import nn
 from mxnet.gluon.contrib.estimator import *
 from mxnet.gluon.contrib.estimator.event_handler import *
 
+mx.reset_np()
 
 def _get_test_network(params=None):
     net = nn.Sequential()

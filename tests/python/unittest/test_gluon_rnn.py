@@ -26,6 +26,7 @@ import pytest
 from mxnet.test_utils import almost_equal, assert_almost_equal
 from common import assert_raises_cudnn_not_satisfied, with_seed, retry
 
+mx.reset_np()
 
 def check_rnn_states(fused_states, stack_states, num_layers, bidirectional=False, is_lstm=True):
     directions = 2 if bidirectional else 1
@@ -212,11 +213,11 @@ def test_residual_bidirectional():
     inputs = [mx.sym.Variable('rnn_t%d_data'%i) for i in range(2)]
     outputs, _ = cell.unroll(2, inputs, merge_outputs=False)
     outputs = mx.sym.Group(outputs)
-    params = cell.collect_params() 
+    params = cell.collect_params()
     assert sorted(params.keys()) == \
-           ['base_cell.l_cell.h2h_bias', 'base_cell.l_cell.h2h_weight', 
+           ['base_cell.l_cell.h2h_bias', 'base_cell.l_cell.h2h_weight',
             'base_cell.l_cell.i2h_bias', 'base_cell.l_cell.i2h_weight',
-            'base_cell.r_cell.h2h_bias', 'base_cell.r_cell.h2h_weight', 
+            'base_cell.r_cell.h2h_bias', 'base_cell.r_cell.h2h_weight',
             'base_cell.r_cell.i2h_bias', 'base_cell.r_cell.i2h_weight']
     # assert outputs.list_outputs() == \
     #        ['bi_t0_plus_residual_output', 'bi_t1_plus_residual_output']

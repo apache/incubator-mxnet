@@ -26,6 +26,8 @@ from common import setup_module, with_seed, assertRaises, xfail_when_nonstandard
 from copy import deepcopy
 import pytest
 
+mx.reset_np()
+
 def dict_equ(a, b):
     assert set(a) == set(b)
     for k in a:

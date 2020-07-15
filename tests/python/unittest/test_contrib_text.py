@@ -20,12 +20,14 @@
 from collections import Counter
 
 from common import assertRaises
+import mxnet as mx
 from mxnet import ndarray as nd
 from mxnet.test_utils import *
 from mxnet.contrib import text
 
 import pytest
 
+mx.reset_np()
 
 def _get_test_str_of_tokens(token_delim, seq_delim):
     seq1 = token_delim + token_delim.join(['Life', 'is', 'great', '!']) + token_delim + seq_delim

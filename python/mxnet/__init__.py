@@ -110,3 +110,5 @@ from . import _global_var
 from . import _api_internal
 from . import api
 from . import container
+
+npx.set_np()
