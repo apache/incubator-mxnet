@@ -38,6 +38,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3 \
     python3-pip \
     awscli \
+    autoconf \
+    automake \
+    libtool \
     crossbuild-essential-arm64 \
  && rm -rf /var/lib/apt/lists/*
 
@@ -57,6 +60,15 @@ RUN git clone --recursive -b v0.3.9 https://github.com/xianyi/OpenBLAS.git && \
     make PREFIX=/usr/aarch64-linux-gnu install && \
     cd /usr/local && \
     rm -rf OpenBLAS
+
+# Install protoc 3.5 and build protobuf for onnx and onnx-tensorrt
+RUN git clone --recursive -b 3.5.1.1 https://github.com/google/protobuf.git && \
+    cd protobuf && \
+    ./autogen.sh && \
+    ./configure && \
+    make -j$(nproc) install && \
+    rm -rf /protobuf && \
+    ldconfig
 
 # Install aarch64 cross depedencies based on Jetpack 4.3
 # Manually downloaded using SDK Manager tool and placed in a private S3 bucket.
