@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.join(curr_path, '../../../python'))
 import models
 from contextlib import contextmanager
 import pytest
+from _pytest.runner import Skipped
 from tempfile import TemporaryDirectory
 import locale
 
@@ -193,7 +194,7 @@ def with_seed(seed=None):
         pytest --verbose --capture=no <test_module_name.py>::<failing_test>
 
     To run a test repeatedly, set MXNET_TEST_COUNT=<NNN> in the environment.
-    To see the seeds of even the passing tests, add '--log-level=DEBUG' to pytest.
+    To see the seeds of even the passing tests, add '--log-cli-level=DEBUG' to pytest.
     """
     def test_helper(orig_test):
         @functools.wraps(orig_test)
@@ -215,7 +216,7 @@ def with_seed(seed=None):
                 mx.random.seed(this_test_seed)
                 random.seed(this_test_seed)
                 logger = default_logger()
-                # 'pytest --logging-level=DEBUG' shows this msg even with an ensuing core dump.
+                # 'pytest --log-cli-level=DEBUG' shows this msg even with an ensuing core dump.
                 test_count_msg = '{} of {}: '.format(i+1,test_count) if test_count > 1 else ''
                 pre_test_msg = ('{}Setting test np/mx/python random seeds, use MXNET_TEST_SEED={}'
                                 ' to reproduce.').format(test_count_msg, this_test_seed)
@@ -224,6 +225,9 @@ def with_seed(seed=None):
                 logger.log(log_level, pre_test_msg)
                 try:
                     orig_test(*args, **kwargs)
+                except Skipped:
+                    # No need to log seed info for skipped pytests
+                    raise
                 except:
                     # With exceptions, repeat test_msg at WARNING level to be sure it's seen.
                     if log_level < logging.WARNING:
@@ -252,7 +256,7 @@ def setup_module():
 
     2. Copy the module-starting seed into the next command, then run:
 
-       MXNET_MODULE_SEED=4018804151 pytest --logging-level=DEBUG --verbose test_module.py
+       MXNET_MODULE_SEED=4018804151 pytest --log-cli-level=DEBUG --verbose test_module.py
 
        Output might be:
 
@@ -264,7 +268,7 @@ def setup_module():
        Illegal instruction (core dumped)
 
     3. Copy the segfaulting-test seed into the command:
-       MXNET_TEST_SEED=1435005594 pytest --logging-level=DEBUG --verbose test_module.py:test2
+       MXNET_TEST_SEED=1435005594 pytest --log-cli-level=DEBUG --verbose test_module.py:test2
        Output might be:
 
        [INFO] np, mx and python random seeds = 2481884723
