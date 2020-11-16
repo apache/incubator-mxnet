@@ -23,6 +23,9 @@
  */
 
 #include "./dot-inl.h"
+#if MXNET_USE_MKLDNN == 1
+#include "../nn/mkldnn/mkldnn_dot-inl.h"
+#endif
 
 namespace mxnet {
 namespace op {
@@ -92,10 +95,37 @@ above patterns, ``dot`` will fallback and generate output with default storage.
 .set_attr<THasDeterministicOutput>("THasDeterministicOutput", true)
 .set_attr<FCompute>("FCompute<cpu>", DotForward_<cpu>)
 .set_attr<FComputeEx>("FComputeEx<cpu>", DotForwardEx<cpu>)
+#if MXNET_USE_MKLDNN == 1
+.set_attr<bool>("TIsMKLDNN", true)
+#endif
 .set_attr<nnvm::FGradient>("FGradient", ElemwiseGradUseIn{"_backward_dot"})
 .add_argument("lhs", "NDArray-or-Symbol", "The first input")
 .add_argument("rhs", "NDArray-or-Symbol", "The second input")
 .add_arguments(DotParam::__FIELDS__());
+
+#if MXNET_USE_MKLDNN == 1
+inline bool SupportMKLDNNDot(const std::vector<NDArray>& inputs,
+                             const std::vector<NDArray>& outputs) {
+  const auto in_dtype = inputs[0].dtype();
+  return in_dtype == inputs[1].dtype() &&
+         in_dtype == outputs[0].dtype() &&
+         (in_dtype == mshadow::kBfloat16 || in_dtype == mshadow::kFloat32);
+}
+
+inline void DotForwardExMKLDNN(const nnvm::NodeAttrs& attrs,
+                               const OpContext& ctx,
+                               const std::vector<NDArray>& inputs,
+                               const std::vector<OpReqType>& req,
+                               const std::vector<NDArray>& outputs) {
+  if (SupportMKLDNNDot(inputs, outputs)) {
+    MKLDNN_OPCHECK_INIT(false, outputs.size(), inputs, outputs);
+    MKLDNNRun(MKLDNNDotForward, attrs, ctx, inputs, req, outputs);
+    MKLDNN_OPCHECK_RUN(DotForward_<cpu>, attrs, ctx, inputs, req, outputs);
+  } else {
+    FallBackCompute(DotForward_<cpu>, attrs, ctx, inputs, req, outputs);
+  }
+}
+#endif
 
 NNVM_REGISTER_OP(_backward_dot)
 .set_num_inputs(3)
