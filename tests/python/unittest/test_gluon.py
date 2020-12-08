@@ -581,6 +581,40 @@ def test_deconv():
     # layer = nn.Conv3DTranspose(16, (3, 3, 3), layout='NDHWC', in_channels=4)
     # # check_layer_forward(layer, (1, 10, 10, 10, 4))
 
+@with_seed()
+def test_deconv_dilation():
+    data = mx.nd.array((((0,0,0),
+                         (0,1,0),
+                         (0,0,0)),
+                        ((0,0,0),
+                         (0,2,0),
+                         (0,0,0))))
+
+    kernel = mx.nd.array(((1,2,3),
+                          (4,5,6),
+                          (7,8,9)))
+
+    data_batch = data.expand_dims(1)
+    weight = kernel.expand_dims(0).expand_dims(0)
+    layer = nn.Conv2DTranspose(in_channels=1, channels=1,
+                               kernel_size=(3,3), padding=(1,1),
+                               strides=(1,1), dilation=(2,2))
+    layer.initialize()
+    layer.weight.set_data(weight)
+    out = layer(data_batch).asnumpy()
+    expected = np.array([[[[1.,0.,2.,0.,3.],
+                           [0.,0.,0.,0.,0.],
+                           [4.,0.,5.,0.,6.],
+                           [0.,0.,0.,0.,0.],
+                           [7.,0.,8.,0.,9.]]],
+                         [[[2.,0.,4.,0.,6.],
+                           [0.,0.,0.,0.,0.],
+                           [8.,0.,10.,0.,12.],
+                           [0.,0.,0.,0.,0.],
+                           [14.,0.,16.,0.,18.]]]  
+                        ])
+    assert_almost_equal(out, expected)
+
 
 def test_pool():
     # transpose shape to bring feature dimension 'c' from 2nd position to last

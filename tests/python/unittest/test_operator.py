@@ -1043,7 +1043,7 @@ def test_abs():
     assert_almost_equal(out, npout)
 
     out_grad = mx.nd.empty(shape)
-    out_grad[:] = 2;
+    out_grad[:] = 2
     npout_grad = out_grad.asnumpy()
     npout_grad = npout_grad * np.sign(data_tmp)
     exe_test.backward(out_grad)
