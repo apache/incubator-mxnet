@@ -22,9 +22,10 @@
  * \brief adaptive average pooling operator
  * \author Hang Zhang
 */
-#include "adaptive_avg_pooling-inl.h"
-// #include "elemwise_op_common.h"
+#include <nnvm/op_attr_types.h>
 #include "../elemwise_op_common.h"
+#include "../operator_common.h"
+#include "adaptive_avg_pooling-inl.h"
 
 #define START_IND(a, b, c) static_cast<int>(std::floor(static_cast<float>(a * c) / b))
 #define END_IND(a, b, c) static_cast<int>(std::ceil(static_cast<float>((a + 1) * c) / b))
@@ -197,6 +198,91 @@ num_threads(engine::OpenMP::Get()->GetRecommendedOMPThreadCount())
   }
 }
 
+#if MXNET_USE_MKLDNN == 1
+bool CanMKLDNNSupportAveragePooling(const NDArray &in_data,
+                                    const NDArray &out_data) {
+  for (int64_t idx = 2; idx < in_data.shape().ndim(); ++idx) {
+    const int s1 = in_data.shape()[idx];
+    const int s2 = out_data.shape()[idx];
+    if (s2 == 0) {
+      return false;
+    }
+    if (s1 % s2 != 0) {
+      return false;
+    }
+  }
+  const int IH = in_data.shape()[2];
+  const int IW = in_data.shape()[3];
+  const int OH = out_data.shape()[2];
+  const int OW = out_data.shape()[3];
+
+  const int strides_1 = floor((IH << 1) / OH) - floor(IH / OH);
+  const int strides_2 = floor((IW << 1) / OW) - floor(IW / OW);
+  const int kernel_1 = ceil((IH << 1) / OH) - floor(IH / OH);
+  const int kernel_2 = ceil((IW << 1) / OW) - floor(IW / OW);
+  const int pad_l_top = (strides_1 * (OH - 1) + kernel_1 - IH) / 2;
+  const int pad_l_left = (strides_2 * (OW - 1) + kernel_2 - IW) / 2;
+
+  return pad_l_top == 0 && pad_l_left == 0;
+}
+
+
+void AdaptiveAvgPoolComputeExCPU(const nnvm::NodeAttrs &attrs,
+                                 const OpContext &ctx,
+                                 const std::vector<NDArray> &inputs,
+                                 const std::vector<OpReqType> &req,
+                                 const std::vector<NDArray> &outputs) {
+  CHECK_EQ(inputs.size(), 1U);
+  CHECK_EQ(outputs.size(), 1U);
+  /*
+  DNNL doesn't support adaptive pooling. 
+  Fallback is needed when padding is not equal 0;
+  */
+  if (SupportMKLDNN(inputs[0]) &&
+      CanMKLDNNSupportAveragePooling(inputs[0], outputs[0])) {
+    const AdaptiveAvgPoolParam &param =
+        nnvm::get<AdaptiveAvgPoolParam>(attrs.parsed);
+    const NDArray *workspace = nullptr;
+    MKLDNN_OPCHECK_INIT(false, 1, inputs, outputs);
+    MKLDNNAdaptivePoolingCompute(ctx, param, inputs[0], req[0], outputs[0],
+                                 workspace);
+    return;
+  }
+  FallBackCompute(AdaptiveAvgPoolOpForward<cpu>, attrs, ctx, inputs, req,
+                  outputs);
+}
+#endif
+
+
+inline static bool AdaptivePoolingStorageType(const nnvm::NodeAttrs &attrs,
+                                              const int dev_mask,
+                                              DispatchMode *dispatch_mode,
+                                              std::vector<int> *in_attrs,
+                                              std::vector<int> *out_attrs) {
+  CHECK_EQ(in_attrs->size(), 1);
+  bool dispatched = false;
+#if MXNET_USE_MKLDNN == 1
+  if (!dispatched) {
+    dispatched = MKLDNNStorageType(attrs, dev_mask, true, dispatch_mode,
+                                   in_attrs, out_attrs);
+  }
+  if (!MKLDNNEnvSet()) {
+    *dispatch_mode = DispatchMode::kFComputeFallback;
+  }
+#else
+  for (int &v : *in_attrs)
+    if (v == -1) v = kDefaultStorage;
+  if (!dispatched && common::ContainsOnlyStorage(*in_attrs, kDefaultStorage)) {
+    dispatched = storage_type_assign(out_attrs, kDefaultStorage, dispatch_mode,
+                                     DispatchMode::kFCompute);
+  }
+  if (!dispatched) {
+    dispatched = dispatch_fallback(out_attrs, dispatch_mode);
+  }
+#endif
+  return dispatched;
+}
+
 
 DMLC_REGISTER_PARAMETER(AdaptiveAvgPoolParam);
 
@@ -219,6 +305,11 @@ The pooling kernel and stride sizes are automatically chosen for desired output 
 .set_attr<FCompute>("FCompute<cpu>", AdaptiveAvgPoolOpForward<cpu>)
 .set_attr<nnvm::FGradient>("FGradient",
   ElemwiseGradUseNone{"_backward_contrib_AdaptiveAvgPooling2D"})
+.set_attr<FInferStorageType>("FInferStorageType", AdaptivePoolingStorageType)
+#if MXNET_USE_MKLDNN == 1
+.set_attr<bool>("TIsMKLDNN", true)
+.set_attr<FComputeEx>("FComputeEx<cpu>",  AdaptiveAvgPoolComputeExCPU)
+#endif
 .add_argument("data", "NDArray-or-Symbol", "Input data")
 .add_arguments(AdaptiveAvgPoolParam::__FIELDS__());
 
