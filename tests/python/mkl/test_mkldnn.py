@@ -471,8 +471,8 @@ def test_convolution():
 @with_seed()
 def test_Deconvolution():
     def check_Deconvolution_training(stype):
-        for shape in [(3, 3, 10, 10)]: # testing only 2D for now
-            data_tmp = np.random.randint(256, size=shape)
+        for shape in [(3, 3, 10), (3, 3, 10, 10), (3, 3, 10, 10, 10)]:
+            data_tmp = np.random.normal(-0.1, 1, size=shape)
             data = mx.symbol.Variable('data', stype=stype)
 
             if np.array(shape).shape[0] == 3:
@@ -481,6 +481,10 @@ def test_Deconvolution():
             elif np.array(shape).shape[0] == 4:
                 test = mx.symbol.Deconvolution(data=data, kernel=(3, 3), stride=(2, 2), num_filter=4)
                 weight_tmp = np.random.normal(-0.1, 0.1, size=(3, 4, 3, 3))
+            # not testing stype fallback, as 3D deconvolution is not natively supported yet
+            elif np.array(shape).shape[0] == 5 and stype == "default":
+                test = mx.symbol.Deconvolution(data=data, kernel=(3,3,3), stride=(2,2,2), num_filter=4)
+                weight_tmp = np.random.normal(-0.1, 0.1, size=(3, 4, 3, 3, 3))
             else:
                 return 0
             bias_tmp = np.random.normal(0.1, 0.1, size=(4,))

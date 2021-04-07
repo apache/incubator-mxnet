@@ -43,9 +43,14 @@ static void DeconvolutionComputeExCPU(const nnvm::NodeAttrs& attrs,
                                       const std::vector<NDArray>& outputs) {
   const DeconvolutionParam& params = nnvm::get<DeconvolutionParam>(attrs.parsed);
   if (SupportMKLDNNDeconv(params, inputs[0])) {
-    MKLDNN_OPCHECK_INIT(false, outputs.size(), inputs, outputs);
-    MKLDNNRun(MKLDNNDeconvolutionForward, attrs, ctx, inputs, req, outputs);
-    MKLDNN_OPCHECK_RUN(DeconvolutionCompute<cpu>, attrs, ctx, inputs, req, outputs);
+    if (params.kernel.ndim() == 3) {
+      // we cannot check the output, as 3D deconvolution is not natively supported yet
+      MKLDNNRun(MKLDNNDeconvolutionForward, attrs, ctx, inputs, req, outputs);
+    } else {
+      MKLDNN_OPCHECK_INIT(false, outputs.size(), inputs, outputs);
+      MKLDNNRun(MKLDNNDeconvolutionForward, attrs, ctx, inputs, req, outputs);
+      MKLDNN_OPCHECK_RUN(DeconvolutionCompute<cpu>, attrs, ctx, inputs, req, outputs);
+    }
     return;
   }
   FallBackCompute(DeconvolutionCompute<cpu>, attrs, ctx, inputs, req, outputs);
@@ -58,9 +63,14 @@ static void DeconvolutionGradComputeExCPU(const nnvm::NodeAttrs& attrs,
                                           const std::vector<NDArray>& outputs) {
   const DeconvolutionParam& params = nnvm::get<DeconvolutionParam>(attrs.parsed);
   if (SupportMKLDNNDeconv(params, inputs[0])) {
-    MKLDNN_OPCHECK_INIT(true, outputs.size(), inputs, outputs);
-    MKLDNNRun(MKLDNNDeconvolutionBackward, attrs, ctx, inputs, req, outputs);
-    MKLDNN_OPCHECK_RUN(DeconvolutionGradCompute<cpu>, attrs, ctx, inputs, req, outputs);
+    if (params.kernel.ndim() == 3) {
+      // we cannot check the output, as 3D deconvolution is not natively supported yet
+      MKLDNNRun(MKLDNNDeconvolutionBackward, attrs, ctx, inputs, req, outputs);
+    } else {
+      MKLDNN_OPCHECK_INIT(true, outputs.size(), inputs, outputs);
+      MKLDNNRun(MKLDNNDeconvolutionBackward, attrs, ctx, inputs, req, outputs);
+      MKLDNN_OPCHECK_RUN(DeconvolutionGradCompute<cpu>, attrs, ctx, inputs, req, outputs);
+    }
     return;
   }
   FallBackCompute(DeconvolutionGradCompute<cpu>, attrs, ctx, inputs, req, outputs);
@@ -100,12 +110,12 @@ static bool DeconvolutionShape(const nnvm::NodeAttrs& attrs,
                                mxnet::ShapeVector *in_shape,
                                mxnet::ShapeVector *out_shape) {
   const DeconvolutionParam& param_ = nnvm::get<DeconvolutionParam>(attrs.parsed);
-#if MXNET_USE_CUDNN == 0
+#if MXNET_USE_CUDNN == 0 && MXNET_USE_MKLDNN == 0
   if (param_.kernel.ndim() > 2) {
-    LOG(FATAL) << "If not using CUDNN, only 1D or 2D Deconvolution is supported";
+    LOG(FATAL) << "If not using CUDNN or MKLDNN, only 1D or 2D Deconvolution is supported";
     return false;
   }
-#endif  // CUDNN
+#endif
 
   using namespace mshadow;
   if (!param_.no_bias) {

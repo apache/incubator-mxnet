@@ -29,7 +29,8 @@ namespace mxnet {
 namespace op {
 
 bool SupportMKLDNNDeconv(const DeconvolutionParam &params, const NDArray &input) {
-  return params.kernel.ndim() == 2 && input.shape().ndim() == 4 &&
+  return params.kernel.ndim() >= 1 && params.kernel.ndim() <= 3 &&
+         input.shape().ndim() == (params.kernel.ndim() + 2) &&
          (input.dtype() == mshadow::kFloat32 || input.dtype() == mshadow::kBfloat16);
 }
 
@@ -322,10 +323,10 @@ DeconvDescCreator::DeconvDescCreator(const DeconvolutionParam &param, const NDAr
       strides(param.stride.ndim()),
       padding(param.pad.ndim()),
       dilates(param.dilate.ndim()) {
-  // assuming only deconv2D is supported for now
   CHECK_EQ(param.stride.ndim(), param.pad.ndim());
   CHECK_EQ(param.stride.ndim(), param.dilate.ndim());
-  CHECK_EQ(param.stride.ndim(), 2);
+  CHECK_GE(param.stride.ndim(), 1);
+  CHECK_LE(param.stride.ndim(), 3);
   for (int i = 0; i < param.stride.ndim(); ++i) {
     strides[i] = param.stride[i];
     padding[i] = param.pad[i];
