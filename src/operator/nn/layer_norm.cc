@@ -57,6 +57,10 @@
 #include "layer_norm-inl.h"
 #include <nnvm/op_attr_types.h>
 #include "../elemwise_op_common.h"
+#if MXNET_USE_MKLDNN == 1
+#include "./mkldnn/mkldnn_layer_norm-inl.h"
+#include "./mkldnn/mkldnn_base-inl.h"
+#endif
 
 #if MSHADOW_USE_MKL == 1
 #include "../mkl_functions-inl.h"
@@ -276,6 +280,80 @@ void LayerNormGradCompute<cpu>(const nnvm::NodeAttrs& attrs,
   return LayerNormGradComputeGeneral<cpu>(attrs, ctx, inputs, req, outputs);
 }
 
+#if MXNET_USE_MKLDNN == 1
+inline bool ShapeBetterForMKLDNN(const mxnet::TShape& shape) {
+  if (shape.ndim() == 2) {
+    if (shape[0] > 1024) {
+      return shape[1] > 1100;
+    } else if (shape[0] > 700) {
+      return shape[1] > 700;
+    } else {
+      return false;
+    }
+  } else {
+    return true;
+  }
+}
+
+inline bool CommonSupportMKLDNNLayerNormChecks(const nnvm::NodeAttrs& attrs, const NDArray& input) {
+  const LayerNormParam& param = nnvm::get<LayerNormParam>(attrs.parsed);
+  const mxnet::TShape& shape = input.shape();
+  return  ShapeBetterForMKLDNN(shape) &&
+          (GetRealAxis(param.axis, shape.ndim()) == shape.ndim() - 1) &&
+          (shape.ndim() > 0) && (shape.ndim() < 6);
+}
+
+inline bool SupportMKLDNNLayerNormFwd(const nnvm::NodeAttrs& attrs, const NDArray& input) {
+  return (CommonSupportMKLDNNLayerNormChecks(attrs, input) &&
+         (input.dtype() == mshadow::kFloat32 || input.dtype() == mshadow::kBfloat16));
+}
+
+inline bool SupportMKLDNNLayerNormBwd(const nnvm::NodeAttrs& attrs, const NDArray& input) {
+  return (CommonSupportMKLDNNLayerNormChecks(attrs, input) &&
+         (input.dtype() == mshadow::kFloat32));
+}
+
+bool LayerNormInferStorageType(const nnvm::NodeAttrs& attrs,
+                               const int dev_mask,
+                               DispatchMode* dispatch_mode,
+                               std::vector<int> *in_attrs,
+                               std::vector<int> *out_attrs) {
+  CHECK(!in_attrs->empty());
+
+  return MKLDNNStorageType(attrs, dev_mask, true, dispatch_mode, in_attrs,
+                           out_attrs);
+}
+
+void LayerNormComputeExCPU(const nnvm::NodeAttrs& attrs,
+                           const OpContext& ctx, const std::vector<NDArray>& inputs,
+                           const std::vector<OpReqType>& req,
+                           const std::vector<NDArray>& outputs) {
+  if (SupportMKLDNNLayerNormFwd(attrs, inputs[0])) {
+    MKLDNN_OPCHECK_INIT(false, outputs.size(), inputs, outputs);
+    MKLDNNRun(MKLDNNLayerNormForward, attrs, ctx, inputs, req, outputs);
+    MKLDNN_OPCHECK_RUN(LayerNormCompute<cpu>, attrs, ctx, inputs, req, outputs);
+    return;
+  } else {
+    FallBackCompute(LayerNormCompute<cpu>, attrs, ctx, inputs, req, outputs);
+  }
+}
+
+void LayerNormGradComputeExCPU(const nnvm::NodeAttrs &attrs,
+                               const OpContext &ctx,
+                               const std::vector<NDArray> &inputs,
+                               const std::vector<OpReqType> &req,
+                               const std::vector<NDArray> &outputs) {
+  if (SupportMKLDNNLayerNormBwd(attrs, inputs[0])) {
+    MKLDNN_OPCHECK_INIT(true, outputs.size(), inputs, outputs);
+    MKLDNNRun(MKLDNNLayerNormBackward, attrs, ctx, inputs, req, outputs);
+    MKLDNN_OPCHECK_RUN(LayerNormGradCompute<cpu>, attrs, ctx, inputs, req, outputs);
+    return;
+  } else {
+    FallBackCompute(LayerNormGradCompute<cpu>, attrs, ctx, inputs, req, outputs);
+  }
+}
+#endif
+
 NNVM_REGISTER_OP(LayerNorm)
 .add_alias("_npx_layer_norm")
 .describe(R"code(Layer normalization.
@@ -323,6 +401,11 @@ axis to be the last item in the input shape.
 .set_attr<mxnet::FInferShape>("FInferShape", LayerNormShape)
 .set_attr<nnvm::FInferType>("FInferType", ElemwiseType<3, 3>)
 .set_attr<FCompute>("FCompute<cpu>", LayerNormCompute<cpu>)
+#if MXNET_USE_MKLDNN == 1
+.set_attr<FInferStorageType>("FInferStorageType", LayerNormInferStorageType)
+.set_attr<bool>("TIsMKLDNN", true)
+.set_attr<FComputeEx>("FComputeEx<cpu>", LayerNormComputeExCPU)
+#endif
 .set_attr<nnvm::FGradient>("FGradient", [](const nnvm::ObjectPtr& n,
                                            const std::vector<nnvm::NodeEntry>& ograds) {
   std::vector<nnvm::NodeEntry> heads;
@@ -331,6 +414,10 @@ axis to be the last item in the input shape.
   heads.push_back(n->inputs[1]);  // gamma
   heads.emplace_back(n, 1, 0);  // mean
   heads.emplace_back(n, 2, 0);  // std
+#if MXNET_USE_MKLDNN == 1
+  heads.push_back(n->inputs[2]);  // beta - added at the end in case of fallback
+                                  // to non MKLDNN version
+#endif
   return MakeGradNode("_backward_LayerNorm", n, heads, n->attrs.dict);
 })
 .set_attr<nnvm::FInplaceOption>("FInplaceOption",
@@ -348,11 +435,20 @@ axis to be the last item in the input shape.
 
 
 NNVM_REGISTER_OP(_backward_LayerNorm)
+#if MXNET_USE_MKLDNN == 1
+.set_num_inputs(6)
+#else
 .set_num_inputs(5)
+#endif
 .set_num_outputs(3)
 .set_attr<nnvm::TIsBackward>("TIsBackward", true)
 .set_attr_parser(ParamParser<LayerNormParam>)
 .set_attr<FCompute>("FCompute<cpu>", LayerNormGradCompute<cpu>)
+#if MXNET_USE_MKLDNN == 1
+.set_attr<FInferStorageType>("FInferStorageType", LayerNormInferStorageType)
+.set_attr<bool>("TIsMKLDNN", true)
+.set_attr<FComputeEx>("FComputeEx<cpu>", LayerNormGradComputeExCPU)
+#endif
 .set_attr<FResourceRequest>("FResourceRequest", [](const NodeAttrs& n) {
   return std::vector<ResourceRequest>{ResourceRequest::kTempSpace};
 });
