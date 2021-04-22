@@ -166,6 +166,7 @@ template <>
 struct hash<mxnet::op::AdaptiveAvgPoolParam> {
   size_t operator()(const mxnet::op::AdaptiveAvgPoolParam &val) {
     size_t ret = 0;
+    ret = dmlc::HashCombine(ret, val.output_size);
     return ret;
   }
 };

@@ -18,9 +18,8 @@
  */
 
 /*!
+ * Copyright (c) 2021 by Contributors
  * \file mkldnn_adaptive_pooling.cc
- * \brief
- * \author Mateusz Ozga
 */
 
 #if MXNET_USE_MKLDNN == 1
@@ -80,7 +79,7 @@ void MKLDNNAdaptivePoolingFwd::Execute(const NDArray &input,
       LOG(FATAL) << "MKLDNN Average Pooling: incorrect worskapce input";
     }
     auto ws = std::make_shared<mkldnn::memory>(
-        (*(this->fwd_pd_)).workspace_desc(), engine,
+        this->fwd_pd_->workspace_desc(), engine,
         workspace->GetMKLDNNData()->get_data_handle());
     args[MKLDNN_ARG_WORKSPACE] = *ws;
   }

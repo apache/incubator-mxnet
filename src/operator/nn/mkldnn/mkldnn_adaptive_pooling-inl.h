@@ -18,9 +18,8 @@
  */
 
 /*!
+ * Copyright (c) 2021 by Contributors
  * \file mkldnn_adaptive_pooling-inl.h
- * \brief
- * \author Mateusz Ozga
 */
 #ifndef MXNET_OPERATOR_NN_MKLDNN_MKLDNN_ADAPTIVE_POOLING_INL_H_
 #define MXNET_OPERATOR_NN_MKLDNN_MKLDNN_ADAPTIVE_POOLING_INL_H_
@@ -68,7 +67,6 @@ class MKLDNNAdaptivePoolingFwd {
             const mkldnn::algorithm alg_kind);
 };
 
-
 template <typename T = mkldnn::memory::dims>
 void updateAdaptivePaddingKernel(T *kernel, T *strides, T *pad_l, T *pad_r,
                                  const NDArray &in_data,
@@ -103,7 +101,7 @@ MKLDNNAdaptivePoolingFwd &GetPoolingFwd(const T &param, const bool is_train,
                                             MKLDNNAdaptivePoolingFwd, OpHash>
       pooling_fwds;
 #endif
-  bool with_workspace = is_train && true;
+  bool with_workspace = is_train;
   MKLDNNPoolingSignature key(param);
   key.AddSign(is_train);
   key.AddSign(with_workspace);
@@ -119,7 +117,8 @@ MKLDNNAdaptivePoolingFwd &GetPoolingFwd(const T &param, const bool is_train,
     mkldnn::memory::dims pad_l(kernel_ndims);
     mkldnn::memory::dims pad_r(kernel_ndims);
 
-    updateAdaptivePaddingKernel(&kernel, &strides, &pad_l, &pad_r, input, output);
+    updateAdaptivePaddingKernel(&kernel, &strides, &pad_l, &pad_r, input,
+                                output);
     mkldnn::memory::validate_dims(kernel);
     mkldnn::memory::validate_dims(strides);
     mkldnn::memory::validate_dims(pad_l);
