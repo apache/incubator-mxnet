@@ -153,32 +153,6 @@ void NumpyRayleighForward(const nnvm::NodeAttrs &attrs,
   }
 }
 
-template<typename xpu, int ndim, typename DType>
-inline void ScalarRayleighReparamBackwardImpl(const OpContext& ctx,
-                                              const std::vector<TBlob>& inputs,
-                                              const std::vector<OpReqType>& req,
-                                              const std::vector<TBlob>& outputs,
-                                              const mxnet::TShape& new_ishape,
-                                              const mxnet::TShape& new_oshape) {
-  using namespace mshadow;
-  using namespace mshadow::expr;
-  using namespace broadcast;
-  Stream<xpu> *s = ctx.get_stream<xpu>();
-  const TBlob igrad = outputs[0].reshape(new_ishape);
-  // inputs: [grad_from_samples, grad_from_noise(invisible), input_tensor,
-  //          samples, noise]
-  const TBlob ograd = inputs[0].reshape(new_oshape);
-  const TBlob itensor = inputs[2].reshape(new_ishape);
-  const TBlob samples = inputs[3].reshape(new_oshape);
-  const TBlob noise = inputs[4].reshape(new_oshape);
-  size_t workspace_size =
-      ReduceWorkspaceSize(s, igrad.shape_, req[0], ograd.shape_, sizeof(DType));
-  Tensor<xpu, 1, char> workspace =
-      ctx.requested[0].get_space_typed<xpu, 1, char>(Shape1(workspace_size), s);
-  Reduce<red::sum, ndim, DType, op::mshadow_op::mul, op::mshadow_op::left>(
-      s, igrad, req[0], workspace, ograd, noise, noise);
-}
-
 template<typename xpu>
 void RayleighReparamBackward(const nnvm::NodeAttrs& attrs,
                              const OpContext& ctx,
@@ -200,7 +174,7 @@ void RayleighReparamBackward(const nnvm::NodeAttrs& attrs,
                          &new_ishape, &new_ishape, &new_oshape);
     MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
       BROADCAST_NDIM_SWITCH(ndim, NDim, {
-        ScalarRayleighReparamBackwardImpl<xpu, NDim, DType>(
+        CommonScalarReparamBackwardImpl<xpu, NDim, DType>(
           ctx, inputs, req, outputs, new_ishape, new_oshape);
       });
     });

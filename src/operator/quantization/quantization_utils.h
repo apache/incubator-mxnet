@@ -184,7 +184,7 @@ inline size_t ConfigReduce(mshadow::Stream<xpu>* s,
   CHECK_EQ(src_shape->ndim(), NDim);
   CHECK_EQ(dst_shape->ndim(), NDim);
 
-  return broadcast::ReduceWorkspaceSize(s, *dst_shape, kWriteTo, *src_shape, sizeof(DType));
+  return broadcast::ReduceWorkspaceSize(s, *dst_shape, kWriteTo, *src_shape);
 }
 
 enum QuantizeOutType { kAuto = 0, kInt8, kUint8 };

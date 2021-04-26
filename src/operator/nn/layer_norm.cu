@@ -29,6 +29,89 @@ using namespace mshadow::cuda;
 namespace mxnet {
 namespace op {
 
+template <>
+void LayerNormGradComputeGeneralImpl<gpu>(const nnvm::NodeAttrs& attrs,
+                                          const OpContext& ctx,
+                                          const TBlob& ograd,
+                                          const TBlob& data,
+                                          const TBlob& gamma,
+                                          const TBlob& mean,
+                                          const TBlob& std,
+                                          const TBlob& normalized_data,
+                                          const TBlob& ograd_mult,
+                                          const TBlob& red_out,
+                                          const std::vector<OpReqType>& req,
+                                          const std::vector<TBlob>& outputs,
+                                          const mshadow::Tensor<gpu, 1, char>& workspace,
+                                          const mxnet::TShape& red_dst_shape,
+                                          const mxnet::TShape& red_src_shape,
+                                          const mxnet::TShape& red_exclude_dst_shape,
+                                          const mxnet::TShape& red_exclude_src_shape,
+                                          const int channel_size) {
+  using namespace mshadow;
+  using namespace mshadow::expr;
+  Stream<gpu> *s = ctx.get_stream<gpu>();
+  // Compute normalized_data = (data - mean) / std
+  BinaryBroadcastRTCCompute {"sub"}(attrs, ctx,
+                                    {data, mean},
+                                    {kWriteTo}, {normalized_data});
+  BinaryBroadcastRTCCompute {"div"}(attrs, ctx,
+                                    {normalized_data, std},
+                                    {kWriteTo}, {normalized_data});
+  // Calculate grad_beta
+  if (req[2] != kNullOp) {
+    BROADCAST_NDIM_SWITCH(red_exclude_dst_shape.ndim(), NDim, {
+      broadcast::RTCReduce(ctx, outputs[2].reshape(red_exclude_dst_shape), req[2], workspace,
+                           ograd.reshape(red_exclude_src_shape), "red::sum{}", NDim, "identity");
+    });
+  }
+  // Calculate grad_gamma, it will be sum(ograd * normalized_data, exclude_axis)
+  ElemwiseBinaryRTCCompute {"mul"}(attrs, ctx, {normalized_data, ograd},
+                                   {kWriteTo}, {ograd_mult});
+  if (req[1] != kNullOp) {
+    BROADCAST_NDIM_SWITCH(red_exclude_dst_shape.ndim(), NDim, {
+      broadcast::RTCReduce(ctx, outputs[1].reshape(red_exclude_dst_shape), req[1], workspace,
+                           ograd_mult.reshape(red_exclude_src_shape), "red::sum{}", NDim,
+                           "identity");
+    });
+  }
+  // Calculate grad_data:
+  //   ograd_mult = ograd * gamma / std
+  //   grad_data = ograd_mult - mean(ograd_mult, axis)
+  //               + normalized_data * (-mean(normalized_data * ograd_mult, axis))
+  if (req[0] != kNullOp) {
+    BinaryBroadcastRTCCompute {"mul"}(attrs, ctx,
+                                      {ograd, gamma},
+                                      {kWriteTo}, {ograd_mult});
+    BinaryBroadcastRTCCompute {"div"}(attrs, ctx,
+                                      {ograd_mult, std},
+                                      {kWriteTo}, {ograd_mult});
+    BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
+        broadcast::RTCReduce(ctx, red_out.reshape(red_dst_shape), kWriteTo, workspace,
+                             ograd_mult.reshape(red_src_shape), "red::sum{}", NDim, "identity");
+    });
+    MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
+      Tensor<gpu, 1, DType> red_out_tensor = red_out.FlatTo1D<gpu, DType>(s);
+      red_out_tensor /= scalar<DType>(channel_size);
+    });
+    BinaryBroadcastRTCCompute {"sub"}(attrs, ctx,
+                                      {ograd_mult, red_out},
+                                      {req[0]}, {outputs[0]});
+    ElemwiseBinaryRTCCompute {"mul"}(attrs, ctx, {ograd_mult, normalized_data},
+                                     {kWriteTo}, {ograd_mult});
+    BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
+      broadcast::RTCReduce(ctx, red_out.reshape(red_dst_shape), kWriteTo, workspace,
+                           ograd_mult.reshape(red_src_shape), "red::sum{}", NDim, "identity");
+    });
+    MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
+      Tensor<gpu, 1, DType> red_out_tensor = red_out.FlatTo1D<gpu, DType>(s);
+      red_out_tensor /=  scalar<DType>(- channel_size);
+    });
+    BinaryBroadcastRTCCompute {"mul"}(attrs, ctx,
+                                      {normalized_data, red_out},
+                                      {kAddTo}, {outputs[0]});
+  }
+}
 template <typename DType>
 __device__ __forceinline__ DType warp_shfl(DType value, int src_lane,
                                            int width = 32, unsigned int mask = 0xffffffff) {

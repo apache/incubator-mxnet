@@ -28,13 +28,15 @@ namespace mxnet {
 namespace op {
 
 NNVM_REGISTER_OP(max)
-.set_attr<FCompute>("FCompute<gpu>", ReduceAxesCompute<gpu, mshadow::red::maximum>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<ReduceAxesParam, 0>
+                                     {"identity", "red::maximum{}", false});
 
 NNVM_REGISTER_OP(_backward_max)
 .set_attr<FCompute>("FCompute<gpu>", ReduceAxesBackwardUseInOut<gpu, mshadow_op::eq>);
 
 NNVM_REGISTER_OP(min)
-.set_attr<FCompute>("FCompute<gpu>", ReduceAxesCompute<gpu, mshadow::red::minimum>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<ReduceAxesParam, 0>
+                                     {"identity", "red::minimum{}", false});
 
 NNVM_REGISTER_OP(_backward_min)
 .set_attr<FCompute>("FCompute<gpu>", ReduceAxesBackwardUseInOut<gpu, mshadow_op::eq>);

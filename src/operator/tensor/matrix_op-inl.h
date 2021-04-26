@@ -2046,8 +2046,13 @@ void RepeatOpBackward(const nnvm::NodeAttrs& attrs,
     inputs[0].type_flag_, inputs[0].dev_id());
   std::vector<TBlob> newInputs = {iblob};
 
+#if !defined(__CUDACC__)
   ReduceAxesComputeImpl<xpu, mshadow::red::sum, false, false>(
       ctx, newInputs, req, newOutputs, rshapes.first);
+#else
+  ReduceAxesRTCComputeImpl(ctx, newInputs, req, newOutputs, rshapes.first,
+                           "red::sum{}", nullptr, false);
+#endif
 }
 
 struct TileParam : public dmlc::Parameter<TileParam> {
@@ -2238,8 +2243,13 @@ void TileOpBackward(const nnvm::NodeAttrs& attrs,
     inputs[0].type_flag_, inputs[0].dev_id());
   std::vector<TBlob> newInputs = {iblob};
 
+#if !defined(__CUDACC__)
   ReduceAxesComputeImpl<xpu, mshadow::red::sum, false, false>(
       ctx, newInputs, req, newOutputs, rshapes.first);
+#else
+  ReduceAxesRTCComputeImpl(ctx, newInputs, req, newOutputs, rshapes.first,
+                           "red::sum{}", nullptr, false);
+#endif
 }
 
 struct ReverseParam : public dmlc::Parameter<ReverseParam> {

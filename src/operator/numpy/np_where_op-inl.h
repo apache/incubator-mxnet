@@ -175,6 +175,13 @@ inline void NumpyWhereOpForward(const nnvm::NodeAttrs& attrs,
   });
 }
 
+#if !defined(__CUDACC__)
+#define NP_WHERE_REDUCE_AXES(safe_acc, ...) \
+  ReduceAxesComputeImpl<xpu, mshadow_op::sum, safe_acc>(__VA_ARGS__)
+#else
+#define NP_WHERE_REDUCE_AXES(safe_acc, ...) ReduceAxesRTCComputeImpl(__VA_ARGS__, "red::sum{}")
+#endif
+
 template<typename xpu>
 inline void NumpyWhereOpBackward(const nnvm::NodeAttrs& attrs,
                                  const OpContext& ctx,
@@ -226,9 +233,9 @@ inline void NumpyWhereOpBackward(const nnvm::NodeAttrs& attrs,
       size_t ws_size = 0;
       if (ograd.shape_ != dx.shape_ || ograd.shape_ != dy.shape_) {
         size_t ws_size1 = broadcast::ReduceWorkspaceSize(
-            s, expanded_lshape, req[0], expanded_oshape, sizeof(DType));
+            s, expanded_lshape, req[0], expanded_oshape);
         size_t ws_size2 = broadcast::ReduceWorkspaceSize(
-            s, expanded_rshape, req[1], expanded_oshape, sizeof(DType));
+            s, expanded_rshape, req[1], expanded_oshape);
         ws_size = std::max(ws_size1, ws_size2);
       }
       // process left output
@@ -246,10 +253,10 @@ inline void NumpyWhereOpBackward(const nnvm::NodeAttrs& attrs,
           s, ograd.Size(), req[0], cstride, oshape,
           cond.dptr<CType>(), ograd.dptr<DType>(), workspace.dptr_);
         if (NeedSafeAcc<true>(dx.type_flag_, dx.type_flag_)) {
-          ReduceAxesComputeImpl<xpu, mshadow_op::sum, true>(ctx, {TBlob(workspace)}, {req[0]},
+          NP_WHERE_REDUCE_AXES(true, ctx, {TBlob(workspace)}, {req[0]},
               {dx.reshape(expanded_lshape)}, expanded_lshape);
         } else {
-          ReduceAxesComputeImpl<xpu, mshadow_op::sum, false>(ctx, {TBlob(workspace)}, {req[0]},
+          NP_WHERE_REDUCE_AXES(false, ctx, {TBlob(workspace)}, {req[0]},
               {dx.reshape(expanded_lshape)}, expanded_lshape);
         }
       }
@@ -268,10 +275,10 @@ inline void NumpyWhereOpBackward(const nnvm::NodeAttrs& attrs,
           s, ograd.Size(), req[1], cstride, oshape,
           cond.dptr<CType>(), ograd.dptr<DType>(), workspace.dptr_);
         if (NeedSafeAcc<true>(dy.type_flag_, dy.type_flag_)) {
-          ReduceAxesComputeImpl<xpu, mshadow_op::sum, true>(ctx, {TBlob(workspace)}, {req[1]},
+          NP_WHERE_REDUCE_AXES(true, ctx, {TBlob(workspace)}, {req[1]},
               {dy.reshape(expanded_rshape)}, expanded_rshape);
         } else {
-          ReduceAxesComputeImpl<xpu, mshadow_op::sum, false>(ctx, {TBlob(workspace)}, {req[1]},
+          NP_WHERE_REDUCE_AXES(false, ctx, {TBlob(workspace)}, {req[1]},
               {dy.reshape(expanded_rshape)}, expanded_rshape);
         }
       }
@@ -367,7 +374,7 @@ inline void NumpyWhereScalarOpBackward(const nnvm::NodeAttrs& attrs,
       size_t ws_size = 0;
       if (ograd.shape_ != dx.shape_) {
         ws_size = broadcast::ReduceWorkspaceSize(s, expanded_lshape, req[0],
-                                                 expanded_oshape, sizeof(DType));
+                                                 expanded_oshape);
       }
       // If lscalar, then process right output, `is_left` should be false
       if (ograd.shape_ == dx.shape_) {
@@ -384,16 +391,18 @@ inline void NumpyWhereScalarOpBackward(const nnvm::NodeAttrs& attrs,
           s, ograd.Size(), req[0], cstride, oshape,
           cond.dptr<CType>(), ograd.dptr<DType>(), workspace.dptr_);
         if (NeedSafeAcc<true>(dx.type_flag_, dx.type_flag_)) {
-          ReduceAxesComputeImpl<xpu, mshadow_op::sum, true>(ctx, {TBlob(workspace)}, {req[0]},
+          NP_WHERE_REDUCE_AXES(true, ctx, {TBlob(workspace)}, {req[0]},
               {dx.reshape(expanded_lshape)}, expanded_lshape);
         } else {
-          ReduceAxesComputeImpl<xpu, mshadow_op::sum, false>(ctx, {TBlob(workspace)}, {req[0]},
+          NP_WHERE_REDUCE_AXES(false, ctx, {TBlob(workspace)}, {req[0]},
               {dx.reshape(expanded_lshape)}, expanded_lshape);
         }
       }
     });
   });
 }
+
+#undef NP_WHERE_REDUCE_AXES
 
 template<typename xpu>
 inline void NumpyWhereScalar2OpForward(const nnvm::NodeAttrs& attrs,

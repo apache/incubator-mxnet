@@ -586,10 +586,11 @@ void PdfOpBackward(const nnvm::NodeAttrs& attrs,
   const PdfParam& param = nnvm::get<PdfParam>(attrs.parsed);
   const size_t N(outputs[1].Size());
   const TShape src_shape(Shape2(N, outputs[0].Size() / N)), dst_shape(Shape2(N, 1));
+  const size_t red_work_size(broadcast::ReduceWorkspaceSize(
+          s, dst_shape, kAddTo, src_shape));
+#if !defined(__CUDACC__)
   // Inputs to PdfOpBackward: grad, samples, parm1, parm2, pdf.
   MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
-    const size_t red_work_size(broadcast::ReduceWorkspaceSize(
-            s, dst_shape, kAddTo, src_shape, sizeof(DType)));
     const size_t tmp_size(outputs[0].Size() * pnum * sizeof(DType) + red_work_size);
     Tensor<xpu, 1, char> tmp_space =
             ctx.requested[0].get_space_typed<xpu, 1, char>(Shape1(tmp_size), s);
@@ -614,6 +615,35 @@ void PdfOpBackward(const nnvm::NodeAttrs& attrs,
        s, outputs[2].reshape(dst_shape), req[2], red_work, grads[2].reshape(src_shape));
     }
   });
+#else
+  // Inputs to PdfOpBackward: grad, samples, parm1, parm2, pdf.
+  MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
+    const size_t tmp_size(outputs[0].Size() * pnum * sizeof(DType) + red_work_size);
+    Tensor<xpu, 1, char> tmp_space =
+            ctx.requested[0].get_space_typed<xpu, 1, char>(Shape1(tmp_size), s);
+    std::vector<TBlob> grads = {outputs[0]};
+    grads.push_back(TBlob(tmp_space.dptr_, outputs[0].shape_,
+                          outputs[1].dev_mask(), outputs[1].type_flag_, outputs[1].dev_id()));
+    if (pnum == 2) {
+      grads.push_back(TBlob(tmp_space.dptr_ + outputs[0].Size() * sizeof(DType), outputs[0].shape_,
+                            outputs[2].dev_mask(), outputs[2].type_flag_, outputs[2].dev_id()));
+    }
+    if (param.is_log) {
+      PdfGradCaller<xpu, DType, pdfgrad<true>, pnum, vparm>::op(inputs, req, grads, s);
+    } else {
+      PdfGradCaller<xpu, DType, pdfgrad<false>, pnum, vparm>::op(inputs, req, grads, s);
+    }
+    Tensor<xpu, 1, char> red_work(
+            tmp_space.dptr_ + pnum * outputs[0].Size() * sizeof(DType), Shape1(red_work_size), s);
+    broadcast::RTCReduce(ctx, outputs[1].reshape(dst_shape), req[1], red_work,
+                         grads[1].reshape(src_shape), "red::sum{}", 2, "identity");
+    if (pnum == 2) {
+      broadcast::RTCReduce(ctx, outputs[2].reshape(dst_shape), req[2], red_work,
+                           grads[2].reshape(src_shape), "red::sum{}", 2, "identity");
+    }
+  });
+
+#endif
 }
 
 }  // namespace op

@@ -54,12 +54,6 @@ MSHADOW_XINLINE void seq_reduce_assign_wr(const index_t idx, const size_t M, con
   assign(&small[idx], addto, OType(val));
 }
 
-#ifdef __CUDACC__
-#include "broadcast_reduce_customized-inl.cuh"
-#include "../../tensor/broadcast_reduce-inl.cuh"
-
-#else
-
 template<typename Reducer, int ndim, typename AType, typename DType, typename OType, typename OP>
 void seq_reduce_compute_wr(const size_t N, const size_t M, const bool addto,
                            const DType *big, OType *small, const Shape<ndim> bshape,
@@ -177,7 +171,6 @@ void ReduceWithReducer(Stream<cpu> *s, const TBlob& small, const OpReqType req,
     reducer);
 }
 
-#endif
 }  // namespace broadcast
 }  // namespace op
 }  // namespace mxnet

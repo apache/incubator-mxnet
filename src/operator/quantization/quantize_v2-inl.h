@@ -205,10 +205,17 @@ class QuantizeV2Operator {
                        dev_id);
         Tensor<xpu, 1, char> workspace(temp_space.dptr_ + 2 * actual_float_size,
                                        Shape1(temp_reduce_size), s);
+#if !defined(__CUDACC__)
         broadcast::Reduce<red::minimum, 2, SrcDType, mshadow::op::identity>(
             s, in_min_t.reshape(dst_shape), kWriteTo, workspace, inputs[0].reshape(src_shape));
         broadcast::Reduce<red::maximum, 2, SrcDType, mshadow::op::identity>(
             s, in_max_t.reshape(dst_shape), kWriteTo, workspace, inputs[0].reshape(src_shape));
+#else
+        broadcast::RTCReduce(ctx, in_min_t.reshape(dst_shape), kWriteTo, workspace,
+                             inputs[0].reshape(src_shape), "red::minimum{}", 2, "identity");
+        broadcast::RTCReduce(ctx, in_max_t.reshape(dst_shape), kWriteTo, workspace,
+                             inputs[0].reshape(src_shape), "red::maximum{}", 2, "identity");
+#endif
         if (out_type == mshadow::kUint8) {
           Kernel<quantize_v2_unsigned, xpu>::Launch(
               s, outputs[0].Size(), outputs[0].dptr<uint8_t>(), outputs[1].dptr<float>(),

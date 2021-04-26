@@ -27,25 +27,30 @@
 namespace mxnet {
 namespace op {
 NNVM_REGISTER_OP(_npi_sum)
-.set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesCompute<gpu, mshadow_op::sum, true>);
+.set_attr<FCompute>("FCompute<gpu>",
+                    ReduceAxesRTCCompute<NumpyReduceAxesParam, 0>{"identity", "red::sum{}", false});
 
 NNVM_REGISTER_OP(_backward_npi_sum)
 .set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesBackwardUseNone<gpu>);
 
 NNVM_REGISTER_OP(_npi_max)
-.set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesNoDTypeCompute<gpu, mshadow::red::maximum>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<NumpyReduceAxesNoDTypeParam, 0>
+                                     {"identity", "red::maximum{}", false});
 
 NNVM_REGISTER_OP(_backward_npi_max)
 .set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesNoDTypeBackward<gpu, mshadow_op::eq>);
 
 NNVM_REGISTER_OP(_npi_min)
-.set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesNoDTypeCompute<gpu, mshadow::red::minimum>);
+.set_attr<FCompute>("FCompute<gpu>",
+                    ReduceAxesRTCCompute<NumpyReduceAxesNoDTypeParam, 0>{"identity",
+                      "red::minimum{}", false});
 
 NNVM_REGISTER_OP(_backward_npi_min)
 .set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesNoDTypeBackward<gpu, mshadow_op::eq>);
 
 NNVM_REGISTER_OP(_npi_prod)
-.set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesCompute<gpu, mshadow_op::product, true>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<NumpyReduceAxesParam, 1>{"identity",
+                                       "red::product{}", false});
 
 NNVM_REGISTER_OP(_backward_npi_prod)
 .set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesBackwardUseInOut<gpu, mshadow_op::rdiv>);
@@ -57,7 +62,8 @@ NNVM_REGISTER_OP(_backward_np_average)
 .set_attr<FCompute>("FCompute<gpu>", NumpyWeightedAverageBackward<gpu>);
 
 NNVM_REGISTER_OP(_npi_mean)
-.set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesCompute<gpu, mshadow_op::sum, true, true>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<NumpyReduceAxesParam, 0>{"identity",
+                                       "red::sum{}", true});
 
 NNVM_REGISTER_OP(_backward_np_mean)
 .set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesBackwardUseNone<gpu, true>);

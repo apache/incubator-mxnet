@@ -56,9 +56,14 @@ void ConstraintCheckForward(const nnvm::NodeAttrs& attrs, const OpContext& ctx,
   CHECK_EQ(outputs.size(), 1U);
   const ConstraintCheckParam& param =
       nnvm::get<ConstraintCheckParam>(attrs.parsed);
+#if !defined(__CUDACC__)
   ReduceAxesComputeImpl<xpu, mshadow_op::product, false, false,
                         op::mshadow_op::identity>(ctx, inputs, req, outputs,
                                                   outputs[0].shape_);
+#else
+  ReduceAxesRTCComputeImpl(ctx, inputs, req, outputs,
+                           outputs[0].shape_, "red::product{}");
+#endif
   std::string msg = param.msg;
   bool red_output = true;
   GetReduceOutput(ctx.get_stream<xpu>(), outputs[0], &red_output);

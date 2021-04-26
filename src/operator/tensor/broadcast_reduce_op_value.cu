@@ -37,7 +37,8 @@ NNVM_REGISTER_OP(broadcast_like)
 .set_attr<FCompute>("FCompute<gpu>", BroadcastCompute<gpu>);
 
 NNVM_REGISTER_OP(_broadcast_backward)
-.set_attr<FCompute>("FCompute<gpu>", ReduceAxesCompute<gpu, mshadow::red::sum>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<ReduceAxesParam, 0>{"identity",
+                                                                              "red::sum{}", false});
 
 }  // namespace op
 }  // namespace mxnet

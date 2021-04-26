@@ -379,6 +379,144 @@ __device__ inline bool isnan(volatile const float16 &val) {
 
 }  // namespace util
 )code";
+
+const char limits[] = R"code(
+constexpr double DBL_MAX = 1.7976931348623157081e+308;
+constexpr float FLT_MAX = 3.4028234663852885981e+38;
+#define inf ((float)1e50)
+#define nan (inf - inf)
+
+namespace limits {
+
+template<typename DType>
+__device__ inline DType MinValue(void);
+
+template<>
+__device__ inline float MinValue<float>(void) {
+  return -FLT_MAX;
+}
+/*! \brief minimum value of double */
+template<>
+__device__ inline double MinValue<double>(void) {
+  return -DBL_MAX;
+}
+/*! \brief minimum value of uint8 */
+template<>
+__device__ inline uint8 MinValue<uint8>(void) {
+  return 0;
+}
+/*! \brief minimum value of int8_t */
+template<>
+__device__ inline int8 MinValue<int8>(void) {
+  return -128;
+}
+/*! \brief minimum value of int32 */
+template<>
+__device__ inline int32 MinValue<int32>(void) {
+  return -2147483648;
+}
+/*! \brief minimum value of int64_t */
+template<>
+__device__ inline int64 MinValue<int64>(void) {
+  return -9223372036854775808LL;
+}
+/*! \brief minimum value of bool */
+template<>
+__device__ inline bool MinValue<bool>(void) {
+  return false;
+}
+/*! \brief minimum value of bool_t */
+template<>
+__device__ inline bool_t MinValue<bool_t>(void) {
+  return MinValue<index_t>();
+}
+
+/*!
+ * \brief negative infinity of certain types
+ * \tparam DType data type
+ */
+template<typename DType>
+__device__ inline DType NegInfValue(void) {
+  return MinValue<DType>();
+}
+/*! \brief negative infinity value of float */
+template<>
+__device__ inline float NegInfValue<float>(void) {
+  return -inf;
+}
+/*! \brief negative infinity value of double */
+template<>
+__device__ inline double NegInfValue<double>(void) {
+  return -inf;
+}
+
+/*!
+ * \brief maximum value of certain types
+ * \tparam DType data type
+ */
+template<typename DType>
+__device__ inline DType MaxValue(void);
+/*! \brief maximum value of float */
+template<>
+__device__ inline float MaxValue<float>(void) {
+  return FLT_MAX;
+}
+/*! \brief maximum value of double */
+template<>
+__device__ inline double MaxValue<double>(void) {
+  return DBL_MAX;
+}
+/*! \brief maximum value of uint8 */
+template<>
+__device__ inline uint8 MaxValue<uint8>(void) {
+  return 255;
+}
+/*! \brief maximum value of int8 */
+template<>
+__device__ inline int8 MaxValue<int8>(void) {
+  return 127;
+}
+/*! \brief maximum value of int32 */
+template<>
+__device__ inline int32 MaxValue<int32>(void) {
+  return 2147483647;
+}
+/*! \brief maximum value of int64 */
+template<>
+__device__ inline int64 MaxValue<int64>(void) {
+  return 9223372036854775807LL;
+}
+/*! \brief maximum value of bool */
+template<>
+__device__ inline bool MaxValue<bool>(void) {
+  return true;
+}
+/*! \brief maximum value of bool_t */
+template<>
+__device__ inline bool_t MaxValue<bool_t>(void) {
+  return MaxValue<index_t>();
+}
+/*!
+ * \brief positive infinity of certain types
+ * \tparam DType data type
+ */
+template<typename DType>
+__device__ inline DType PosInfValue(void) {
+  return MaxValue<DType>();
+}
+/*! \brief positive infinity value of float */
+template<>
+__device__ inline float PosInfValue<float>(void) {
+  return inf;
+}
+/*! \brief positive infinity value of double */
+template<>
+__device__ inline double PosInfValue<double>(void) {
+  return inf;
+}
+
+}  // namespace limits
+)code";
 }  // namespace rtc
 }  // namespace cuda
 }  // namespace common

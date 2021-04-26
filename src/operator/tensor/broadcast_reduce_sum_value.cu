@@ -28,19 +28,22 @@ namespace mxnet {
 namespace op {
 
 NNVM_REGISTER_OP(sum)
-.set_attr<FCompute>("FCompute<gpu>", ReduceAxesCompute<gpu, mshadow::red::sum>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<ReduceAxesParam, 0>{"identity",
+                                                                           "red::sum{}", false});
 
 NNVM_REGISTER_OP(_backward_sum)
 .set_attr<FCompute>("FCompute<gpu>", ReduceAxesBackwardUseNone<gpu>);
 
 NNVM_REGISTER_OP(mean)
-.set_attr<FCompute>("FCompute<gpu>", ReduceAxesCompute<gpu, mshadow::red::sum, true>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<ReduceAxesParam, 0>{"identity",
+                                                                           "red::sum{}", true});
 
 NNVM_REGISTER_OP(_backward_mean)
 .set_attr<FCompute>("FCompute<gpu>", ReduceAxesBackwardUseNone<gpu, true>);
 
 NNVM_REGISTER_OP(nansum)
-.set_attr<FCompute>("FCompute<gpu>", ReduceAxesCompute<gpu, mshadow_op::nansum>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<ReduceAxesParam, 0>{"identity",
+                                                                           "red::nansum{}", false});
 
 NNVM_REGISTER_OP(_backward_nansum)
 .set_attr<FCompute>("FCompute<gpu>", ReduceAxesBackwardUseInOut<gpu, mshadow_op::nansum_grad>);

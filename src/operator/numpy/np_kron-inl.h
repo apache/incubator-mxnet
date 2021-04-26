@@ -188,6 +188,14 @@ void KronOpForwardImpl(const OpContext& ctx,
   });
 }
 
+#if !defined(__CUDACC__)
+#define NP_KRON_REDUCE_AXES(safe_acc, workspace, ...) \
+  ReduceAxesComputeImpl<xpu, mshadow_op::sum, safe_acc>(__VA_ARGS__, &workspace)
+#else
+#define NP_KRON_REDUCE_AXES(safe_acc, workspace, ...) \
+  ReduceAxesRTCComputeImpl(__VA_ARGS__, "red::sum{}", &workspace)
+#endif
+
 template<typename xpu>
 void KronOpBackwardImpl(const OpContext& ctx,
                         const std::vector<OpReqType>& req,
@@ -226,12 +234,23 @@ void KronOpBackwardImpl(const OpContext& ctx,
       const OpReqType& scalar_req = (ashape.ndim() == 0) ? req[0] : req[1];
       ASSIGN_DISPATCH(tensor_grad_, tensor_req,
                       broadcast_scalar(scalar_, tensor_grad_.shape_) * ograd_);
-      Tensor<xpu, 1, DType> workspace =
-        ctx.requested[0].get_space_typed<xpu, 1, DType>(Shape1(ograd.shape_.Size()), s);
-      ASSIGN_DISPATCH(workspace, kWriteTo, tensor_ * ograd_);
+      TShape src_shape, dst_shape;
+      BroadcastReduceShapeCompact(ograd.shape_, scalar_grad_.shape_, &src_shape, &dst_shape);
+      size_t workspace_size = broadcast::ReduceWorkspaceSize(s, dst_shape,
+                                                             {scalar_req}, src_shape);
+      constexpr size_t align_size = 1024;
+      const size_t aligned_first_workspace_size = ((workspace_size + align_size - 1) / align_size)
+                                                  * align_size;
+      workspace_size = aligned_first_workspace_size + ograd.shape_.Size() * sizeof(DType);
+      Tensor<xpu, 1, char> workspace =
+        ctx.requested[0].get_space_typed<xpu, 1, char>(Shape1(workspace_size), s);
+      Tensor<xpu, 1, DType> temp(reinterpret_cast<DType*>(workspace.dptr_ +
+                                                          aligned_first_workspace_size),
+                                 Shape1(ograd.shape_.Size()), s);
+      ASSIGN_DISPATCH(temp, kWriteTo, tensor_ * ograd_);
 
-      ReduceAxesComputeImpl<xpu, mshadow_op::sum, true>(
-        ctx, {TBlob(workspace)}, {scalar_req}, {TBlob(scalar_grad_)}, scalar_grad_.shape_);
+      NP_KRON_REDUCE_AXES(true, workspace, ctx, {TBlob(temp)}, {scalar_req},
+                          {TBlob(scalar_grad_)}, scalar_grad_.shape_);
     } else {
       MXNET_NDIM_SWITCH(oshape.ndim(), ndim, {
         Shape<ndim> ashape_ = oshape.get<ndim>();
@@ -275,6 +294,8 @@ void KronOpBackwardImpl(const OpContext& ctx,
     }
   });
 }
+
+#undef NP_KRON_REDUCE_AXES
 
 template<typename xpu>
 inline void KronOpForward(const nnvm::NodeAttrs& attrs,

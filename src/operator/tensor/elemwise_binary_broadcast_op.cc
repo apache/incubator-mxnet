@@ -376,10 +376,10 @@ void BinaryBroadcastRTCBackwardUseNone::operator()(const nnvm::NodeAttrs& attrs,
       if (out.shape_.Size() != 0) {
         broadcast::RTCReduce(ctx, lhs, req[0],
                              workspace, out,
-                             "red::sum", NDim, LOP);
+                             "red::sum{}", NDim, LOP);
         broadcast::RTCReduce(ctx, rhs, req[1],
                              workspace, out,
-                             "red::sum", NDim, ROP);
+                             "red::sum{}", NDim, ROP);
       } else {
         using namespace common::cuda::rtc::util;
         if (lhs.shape_.Size() != 0) {
@@ -425,21 +425,21 @@ void BinaryBroadcastRTCBackwardUseIn::operator()(const nnvm::NodeAttrs& attrs,
         const TBlob rhs = inputs[2].reshape(new_rshape);
         size_t workspace_size_l = broadcast::ReduceWorkspaceSize(
             s, lgrad.shape_, req[0], ograd.shape_, lhs.shape_,
-            rhs.shape_, common::mshadow_type_info(outputs[0].type_flag_).size);
+            rhs.shape_);
         size_t workspace_size_r = broadcast::ReduceWorkspaceSize(
             s, rgrad.shape_, req[1], ograd.shape_, lhs.shape_,
-            rhs.shape_, common::mshadow_type_info(outputs[1].type_flag_).size);
+            rhs.shape_);
         size_t workspace_size = std::max(workspace_size_l, workspace_size_r);
         Tensor<gpu, 1, char> workspace =
             ctx.requested[0].get_space_typed<gpu, 1, char>(Shape1(workspace_size), s);
         if (req[0] != kNullOp) {
           broadcast::RTCReduce(ctx, lgrad, req[0], workspace,
-                               ograd, lhs, rhs, "red::sum", NDim,
+                               ograd, lhs, rhs, "red::sum{}", NDim,
                                "mul", LOP);
         }
         if (req[1] != kNullOp) {
           broadcast::RTCReduce(ctx, rgrad, req[1], workspace,
-                               ograd, lhs, rhs, "red::sum", NDim,
+                               ograd, lhs, rhs, "red::sum{}", NDim,
                                "mul", ROP);
         }
     });

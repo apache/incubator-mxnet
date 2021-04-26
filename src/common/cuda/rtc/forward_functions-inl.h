@@ -941,6 +941,11 @@ __device__ inline bool_t np_logical_not(const DType val) {
   return !static_cast<bool>(val);
 }
 
+template <typename DType>
+__device__ inline bool_t NonZero(const DType val) {
+  return val != 0;
+}
+
 #undef DEFINE_UNARY_MATH_FUNC
 
 template <typename DType>

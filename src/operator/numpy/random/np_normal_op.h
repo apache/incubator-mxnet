@@ -161,7 +161,7 @@ void NumpyNormalForward(const nnvm::NodeAttrs &attrs,
                          const std::vector<TBlob> &outputs) {
   using namespace mshadow;
   using namespace mxnet_op;
-  const NumpyNormalParam &param = nnvm::get<NumpyNormalParam>(attrs.parsed);
+  const auto &param = nnvm::get<NumpyNormalParam>(attrs.parsed);
   Stream<xpu> *s = ctx.get_stream<xpu>();
   // Generate base random number.
   Random<xpu, float> *prnd = ctx.requested[0].get_random<xpu, float>(s);
@@ -240,72 +240,6 @@ void NumpyNormalForward(const nnvm::NodeAttrs &attrs,
   }
 }
 
-template<typename xpu, int ndim, typename DType>
-inline void NormalReparamBackwardImpl(const OpContext& ctx,
-                                      const std::vector<TBlob>& inputs,
-                                      const std::vector<OpReqType>& req,
-                                      const std::vector<TBlob>& outputs,
-                                      const mxnet::TShape& new_lshape,
-                                      const mxnet::TShape& new_rshape,
-                                      const mxnet::TShape& new_oshape) {
-  using namespace mshadow;
-  using namespace mshadow::expr;
-  using namespace broadcast;
-  Stream<xpu> *s = ctx.get_stream<xpu>();
-  const TBlob lgrad = outputs[0].reshape(new_lshape);
-  const TBlob rgrad = outputs[1].reshape(new_rshape);
-  const TBlob ograd = inputs[0].reshape(new_oshape);
-  // Mean
-  const TBlob lhs = inputs[2].reshape(new_lshape);
-  // Variance
-  const TBlob rhs = inputs[3].reshape(new_rshape);
-  const TBlob samples = inputs[4].reshape(new_oshape);
-  const TBlob noise = inputs[5].reshape(new_oshape);
-  size_t workspace_size_l = ReduceWorkspaceSize(
-      s, lgrad.shape_, req[0], ograd.shape_, lhs.shape_, rhs.shape_, sizeof(DType));
-  size_t workspace_size_r = ReduceWorkspaceSize(
-      s, rgrad.shape_, req[1], ograd.shape_, lhs.shape_, rhs.shape_, sizeof(DType));
-  size_t workspace_size = std::max(workspace_size_l, workspace_size_r);
-  Tensor<xpu, 1, char> workspace =
-      ctx.requested[0].get_space_typed<xpu, 1, char>(Shape1(workspace_size), s);
-  Reduce<red::sum, ndim, DType, op::mshadow_op::identity>(s,
-          lgrad, req[0], workspace, ograd);
-  Reduce<red::sum, ndim, DType, op::mshadow_op::mul, op::mshadow_op::left>(
-      s, rgrad, req[1], workspace, ograd, noise, rhs);
-}
-
-template<typename xpu, int ndim, typename DType>
-inline void ScalarNormalReparamBackwardImpl(const OpContext& ctx,
-                                            const std::vector<TBlob>& inputs,
-                                            const std::vector<OpReqType>& req,
-                                            const std::vector<TBlob>& outputs,
-                                            const mxnet::TShape& new_ishape,
-                                            const mxnet::TShape& new_oshape,
-                                            const bool loc_is_tensor) {
-  using namespace mshadow;
-  using namespace mshadow::expr;
-  using namespace broadcast;
-  Stream<xpu> *s = ctx.get_stream<xpu>();
-  const TBlob igrad = outputs[0].reshape(new_ishape);
-  // inputs: [grad_from_samples, grad_from_noise(invisible), input_tensor,
-  //          samples, noise]
-  const TBlob ograd = inputs[0].reshape(new_oshape);
-  const TBlob itensor = inputs[2].reshape(new_ishape);
-  const TBlob samples = inputs[3].reshape(new_oshape);
-  const TBlob noise = inputs[4].reshape(new_oshape);
-  size_t workspace_size =
-      ReduceWorkspaceSize(s, igrad.shape_, req[0], ograd.shape_, sizeof(DType));
-  Tensor<xpu, 1, char> workspace =
-      ctx.requested[0].get_space_typed<xpu, 1, char>(Shape1(workspace_size), s);
-  if (loc_is_tensor) {
-    Reduce<red::sum, ndim, DType, op::mshadow_op::identity>(s, igrad, req[0],
-                                                            workspace, ograd);
-  } else {
-    Reduce<red::sum, ndim, DType, op::mshadow_op::mul, op::mshadow_op::left>(
-        s, igrad, req[0], workspace, ograd, noise, noise);
-  }
-}
-
 // Allow normal sampling to be differentiable,
 // using reparameterization trick described in:
 // Auto-encoding variational bayes.
@@ -324,7 +258,7 @@ void NormalReparamBackward(const nnvm::NodeAttrs& attrs,
   if (outputs.size() == 0U) {
     return;
   }
-  const NumpyNormalParam &param = nnvm::get<NumpyNormalParam>(attrs.parsed);
+  const auto &param = nnvm::get<NumpyNormalParam>(attrs.parsed);
   // [tensor tensor] case
   if (inputs.size() == 6U) {
     mxnet::TShape new_lshape, new_rshape, new_oshape;
@@ -332,7 +266,7 @@ void NormalReparamBackward(const nnvm::NodeAttrs& attrs,
                          &new_lshape, &new_rshape, &new_oshape);
     MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
       BROADCAST_NDIM_SWITCH(ndim, NDim, {
-        NormalReparamBackwardImpl<xpu, NDim, DType>(
+        CommonReparamBackwardImpl<xpu, NDim, DType>(
           ctx, inputs, req, outputs, new_lshape, new_rshape, new_oshape);
       });
     });
@@ -345,7 +279,7 @@ void NormalReparamBackward(const nnvm::NodeAttrs& attrs,
     bool loc_is_tensor = !param.loc.has_value();
     MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
       BROADCAST_NDIM_SWITCH(ndim, NDim, {
-        ScalarNormalReparamBackwardImpl<xpu, NDim, DType>(
+        CommonScalarReparamBackwardImpl<xpu, NDim, DType>(
           ctx, inputs, req, outputs, new_ishape, new_oshape, loc_is_tensor);
       });
     });

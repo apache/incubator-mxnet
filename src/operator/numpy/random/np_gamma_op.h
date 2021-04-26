@@ -420,14 +420,19 @@ inline void GammaReparamBackwardImpl(const OpContext& ctx,
   const TBlob alpha = inputs[1].reshape(new_ishape);
   TBlob samples = inputs[2].reshape(new_oshape);
   size_t workspace_size =
-      ReduceWorkspaceSize(s, igrad.shape_, req[0], ograd.shape_, sizeof(DType));
+      ReduceWorkspaceSize(s, igrad.shape_, req[0], ograd.shape_);
   // Convert samples to standard gamma
   Kernel<op_with_req<mshadow_op::div, kWriteTo>, xpu>::Launch(
     s, samples.Size(), samples.dptr<DType>(), samples.dptr<DType>(), DType(scale));
   Tensor<xpu, 1, char> workspace =
       ctx.requested[0].get_space_typed<xpu, 1, char>(Shape1(workspace_size), s);
+#if !defined(__CUDACC__)
   Reduce<red::sum, ndim, DType, op::mshadow_op::mul, op::mshadow_op::gamma_implicit_grad>(
       s, igrad, req[0], workspace, ograd, alpha, samples);
+#else
+  RTCReduce(ctx, igrad, req[0], workspace, ograd, alpha, samples, "red::sum{}", ndim,
+            "mul", "gamma_implicit_grad");
+#endif
   Kernel<op_with_req<mshadow_op::mul, kWriteTo>, xpu>::Launch(
     s, igrad.Size(), igrad.dptr<DType>(), igrad.dptr<DType>(), DType(scale));
   // Convert samples back, otherwise the output would be corrupted.

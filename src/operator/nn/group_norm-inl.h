@@ -113,23 +113,28 @@ void GroupNormCompute(const nnvm::NodeAttrs& attrs,
 
   Tensor<xpu, 1, char> workspace;
 
-  size_t workspace_size = 0;
-  MSHADOW_REAL_TYPE_SWITCH(data.type_flag_, DType, {
-    workspace_size =
-      broadcast::ReduceWorkspaceSize(s, red_dst_shape, req[0],
-                                     red_src_shape, sizeof(DType));
-  });
+  size_t workspace_size = broadcast::ReduceWorkspaceSize(s, red_dst_shape, req[0],
+                                                         red_src_shape);
 
   workspace = ctx.requested[0].get_space_typed<xpu, 1, char>(Shape1(workspace_size), s);
 
   // Calculate mean
+#if !defined(__CUDACC__)
   MSHADOW_REAL_TYPE_SWITCH(data.type_flag_, DType, {
     BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
       broadcast::Reduce<mshadow_op::sum, NDim, DType, mshadow_op::identity, true>(
         s, mean_, req[0], workspace, data_);
-      Tensor<xpu, 1, DType> mean_data_tensor = mean_.FlatTo1D<xpu, DType>(s);
-      mean_data_tensor /= scalar<DType>(channel_size);
     });
+  });
+#else
+  BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
+    broadcast::RTCReduce(ctx, mean_, req[0], workspace,
+                         data_, "red::sum{}", NDim, "identity");
+  });
+#endif  // !defined(__CUDACC__)
+  MSHADOW_REAL_TYPE_SWITCH(data.type_flag_, DType, {
+    Tensor<xpu, 1, DType> mean_data_tensor = mean_.FlatTo1D<xpu, DType>(s);
+    mean_data_tensor /= scalar<DType>(channel_size);
   });
 
   TBlob data_grp = data.reshape(temp_data_shape);
@@ -150,14 +155,24 @@ void GroupNormCompute(const nnvm::NodeAttrs& attrs,
 
   // Calculate std
   const TBlob centered_out = outputs[groupnorm::kOut].reshape(red_src_shape);
+#if !defined(__CUDACC__)
   MSHADOW_REAL_TYPE_SWITCH(output_grp.type_flag_, DType, {
     BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
       broadcast::Reduce<mshadow_op::sum, NDim, DType, mshadow_op::square, true>(
         s, std_, req[0], workspace, centered_out);
-      Tensor<xpu, 1, DType> std_data_tensor = std_.FlatTo1D<xpu, DType>(s);
-      std_data_tensor = F<mshadow_op::square_root>(std_data_tensor / scalar<DType>(channel_size)
-                        + scalar<DType>(param.eps));
     });
+  });
+#else
+  BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
+    broadcast::RTCReduce(ctx, std_, req[0],
+                         workspace, centered_out,
+                         "red::sum{}", NDim, "square");
+  });
+#endif
+  MSHADOW_REAL_TYPE_SWITCH(output_grp.type_flag_, DType, {
+    Tensor<xpu, 1, DType> std_data_tensor = std_.FlatTo1D<xpu, DType>(s);
+    std_data_tensor = F<mshadow_op::square_root>(std_data_tensor / scalar<DType>(channel_size)
+                      + scalar<DType>(param.eps));
   });
 
   // Calculate data = data / std
@@ -263,26 +278,17 @@ void GroupNormGradCompute(const nnvm::NodeAttrs& attrs,
 
   // Initialize the workspace + Construct the temporary TBlobs
   Tensor<xpu, 1, char> workspace;
-  size_t reduce_workspace_size = 0;
-  size_t data_size = 0;
-  size_t red_out_size = 0;
-  MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
-    data_size = sizeof(DType) * data.Size();
-    red_out_size = sizeof(DType) * mean.Size();
-    // There are two types of reduction workloads: reduce over axis and reduce exclude axis
-    // We take the maximum of the workspace sizes required by these workloads.
-    // Also, we explicitly set the req_type=kAddto in case we want to use it.
-    reduce_workspace_size =
-      std::max(reduce_workspace_size,
-               broadcast::ReduceWorkspaceSize(s, red_dst_shape,
-                                              kAddTo, red_src_shape,
-                                              sizeof(DType)));
-    reduce_workspace_size =
-      std::max(reduce_workspace_size,
-               broadcast::ReduceWorkspaceSize(s, red_exclude_dst_shape, kAddTo,
-                                              red_exclude_src_shape,
-                                              sizeof(DType)));
-  });
+  size_t dtype_size = common::mshadow_type_info(outputs[0].type_flag_).size;
+  size_t data_size = data.Size() * dtype_size;
+  size_t red_out_size = mean.Size() * dtype_size;
+  // There are two types of reduction workloads: reduce over axis and reduce exclude axis
+  // We take the maximum of the workspace sizes required by these workloads.
+  // Also, we explicitly set the req_type=kAddto in case we want to use it.
+  size_t reduce_workspace_size =
+    std::max(broadcast::ReduceWorkspaceSize(s, red_dst_shape,
+                                            kAddTo, red_src_shape),
+             broadcast::ReduceWorkspaceSize(s, red_exclude_dst_shape, kAddTo,
+                                            red_exclude_src_shape));
   workspace = ctx.requested[0].get_space_typed<xpu, 1, char>(
     Shape1(reduce_workspace_size + data_size * 2 + red_out_size), s);
   const TBlob normalized_data =
@@ -300,14 +306,6 @@ void GroupNormGradCompute(const nnvm::NodeAttrs& attrs,
   BinaryBroadcastCompute<xpu, op::mshadow_op::div>(attrs, ctx,
                                                    {normalized_data, std_},
                                                    {kWriteTo}, {normalized_data});
-#else
-  BinaryBroadcastRTCCompute {"sub"}(attrs, ctx,
-                                    {data_, mean_},
-                                    {kWriteTo}, {normalized_data});
-  BinaryBroadcastRTCCompute {"div"}(attrs, ctx,
-                                    {normalized_data, std_},
-                                    {kWriteTo}, {normalized_data});
-#endif  // !defined(__CUDACC__)
   // Calculate grad_beta
   if (req[2] != kNullOp) {
     MSHADOW_REAL_TYPE_SWITCH(outputs[2].type_flag_, DType, {
@@ -319,13 +317,8 @@ void GroupNormGradCompute(const nnvm::NodeAttrs& attrs,
     });
   }
   // Calculate grad_gamma, it will be sum(ograd * normalized_data, exclude_axis)
-#if !defined(__CUDACC__)
   ElemwiseBinaryOp::Compute<xpu, op::mshadow_op::mul>(attrs, ctx, {normalized_data, ograd},
                                                       {kWriteTo}, {ograd_mult});
-#else
-  ElemwiseBinaryRTCCompute {"mul"}(attrs, ctx, {normalized_data, ograd},
-                                   {kWriteTo}, {ograd_mult});
-#endif  // !defined(__CUDACC__)
   if (req[1] != kNullOp) {
     MSHADOW_REAL_TYPE_SWITCH(outputs[1].type_flag_, DType, {
       BROADCAST_NDIM_SWITCH(red_exclude_dst_shape.ndim(), NDim, {
@@ -335,6 +328,32 @@ void GroupNormGradCompute(const nnvm::NodeAttrs& attrs,
       });
     });
   }
+#else
+  BinaryBroadcastRTCCompute {"sub"}(attrs, ctx,
+                                    {data_, mean_},
+                                    {kWriteTo}, {normalized_data});
+  BinaryBroadcastRTCCompute {"div"}(attrs, ctx,
+                                    {normalized_data, std_},
+                                    {kWriteTo}, {normalized_data});
+  // Calculate grad_beta
+  if (req[2] != kNullOp) {
+    BROADCAST_NDIM_SWITCH(red_exclude_dst_shape.ndim(), NDim, {
+      broadcast::RTCReduce(ctx, outputs[2].reshape(red_exclude_dst_shape),
+                           req[2], workspace, ograd.reshape(red_exclude_src_shape),
+                           "red::sum{}", NDim, "identity");
+    });
+  }
+  // Calculate grad_gamma, it will be sum(ograd * normalized_data, exclude_axis)
+  ElemwiseBinaryRTCCompute {"mul"}(attrs, ctx, {normalized_data, ograd},
+                                   {kWriteTo}, {ograd_mult});
+  if (req[1] != kNullOp) {
+    BROADCAST_NDIM_SWITCH(red_exclude_dst_shape.ndim(), NDim, {
+      broadcast::RTCReduce(ctx, outputs[1].reshape(red_exclude_dst_shape),
+                           req[1], workspace, ograd_mult.reshape(red_exclude_src_shape),
+                           "red::sum{}", NDim, "identity");
+    });
+  }
+#endif  // !defined(__CUDACC__)
 
   // Calculate grad_data:
   //   ograd_mult = ograd * gamma / std
@@ -350,15 +369,6 @@ void GroupNormGradCompute(const nnvm::NodeAttrs& attrs,
     BinaryBroadcastCompute<xpu, op::mshadow_op::div>(attrs, ctx,
                                                     {ograd_mult, std_},
                                                     {kWriteTo}, {ograd_mult});
-#else
-    BinaryBroadcastRTCCompute {"mul"}(attrs, ctx,
-                                      {inputs[0], gamma},
-                                      {kWriteTo},
-                                      {ograd_mult.reshape(data.shape_)});
-    BinaryBroadcastRTCCompute {"div"}(attrs, ctx,
-                                      {ograd_mult, std_},
-                                      {kWriteTo}, {ograd_mult});
-#endif  // !defined(__CUDACC__)
     MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
       BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
         broadcast::Reduce<mshadow_op::sum, NDim, DType, op::mshadow_op::identity, true>(
@@ -368,19 +378,11 @@ void GroupNormGradCompute(const nnvm::NodeAttrs& attrs,
       Tensor<xpu, 1, DType> red_out_tensor = red_out.FlatTo1D<xpu, DType>(s);
       red_out_tensor /= scalar<DType>(N);
     });
-#if !defined(__CUDACC__)
     BinaryBroadcastCompute<xpu, op::mshadow_op::minus>(attrs, ctx,
                                                       {ograd_mult, red_out},
                                                       {req[0]}, {output_});
     ElemwiseBinaryOp::Compute<xpu, op::mshadow_op::mul>(attrs, ctx, {ograd_mult, normalized_data},
                                                         {kWriteTo}, {ograd_mult});
-#else
-    BinaryBroadcastRTCCompute {"sub"}(attrs, ctx,
-                                      {ograd_mult, red_out},
-                                      {req[0]}, {output_});
-    ElemwiseBinaryRTCCompute {"mul"}(attrs, ctx, {ograd_mult, normalized_data},
-                                     {kWriteTo}, {ograd_mult});
-#endif  // !defined(__CUDACC__)
     MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
       BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
         broadcast::Reduce<mshadow_op::sum, NDim, DType, op::mshadow_op::identity, true>(
@@ -390,11 +392,38 @@ void GroupNormGradCompute(const nnvm::NodeAttrs& attrs,
       Tensor<xpu, 1, DType> red_out_tensor = red_out.FlatTo1D<xpu, DType>(s);
       red_out_tensor /= scalar<DType>(-N);
     });
-#if !defined(__CUDACC__)
     BinaryBroadcastCompute<xpu, op::mshadow_op::mul>(attrs, ctx,
                                                      {normalized_data, red_out},
                                                      {kAddTo}, {output_});
 #else
+    BinaryBroadcastRTCCompute {"mul"}(attrs, ctx,
+                                      {inputs[0], gamma},
+                                      {kWriteTo},
+                                      {ograd_mult.reshape(data.shape_)});
+    BinaryBroadcastRTCCompute {"div"}(attrs, ctx,
+                                      {ograd_mult, std_},
+                                      {kWriteTo}, {ograd_mult});
+    BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
+      broadcast::RTCReduce(ctx, red_out.reshape(red_dst_shape), kWriteTo, workspace,
+                           ograd_mult.reshape(red_src_shape), "red::sum{}", NDim, "identity");
+    });
+    MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
+      Tensor<xpu, 1, DType> red_out_tensor = red_out.FlatTo1D<xpu, DType>(s);
+      red_out_tensor /= scalar<DType>(N);
+    });
+    BinaryBroadcastRTCCompute {"sub"}(attrs, ctx,
+                                      {ograd_mult, red_out},
+                                      {req[0]}, {output_});
+    ElemwiseBinaryRTCCompute {"mul"}(attrs, ctx, {ograd_mult, normalized_data},
+                                     {kWriteTo}, {ograd_mult});
+    BROADCAST_NDIM_SWITCH(red_dst_shape.ndim(), NDim, {
+      broadcast::RTCReduce(ctx, red_out.reshape(red_dst_shape), kWriteTo, workspace,
+                           ograd_mult.reshape(red_src_shape), "red::sum{}", NDim, "identity");
+    });
+    MSHADOW_REAL_TYPE_SWITCH(outputs[0].type_flag_, DType, {
+      Tensor<xpu, 1, DType> red_out_tensor = red_out.FlatTo1D<xpu, DType>(s);
+      red_out_tensor /= scalar<DType>(-N);
+    });
     BinaryBroadcastRTCCompute {"mul"}(attrs, ctx,
                                       {normalized_data, red_out},
                                       {kAddTo}, {output_});

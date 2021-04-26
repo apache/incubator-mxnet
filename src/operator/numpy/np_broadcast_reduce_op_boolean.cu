@@ -29,12 +29,12 @@ namespace mxnet {
 namespace op {
 
 NNVM_REGISTER_OP(_npi_any)
-.set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesBoolCompute<gpu,
-  mshadow_op::sum, mshadow_op::NonZero, 0>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<NumpyReduceAxesBoolParam, 0>
+                                     {"NonZero", "red::sum{}", false});
 
 NNVM_REGISTER_OP(_npi_all)
-.set_attr<FCompute>("FCompute<gpu>", NumpyReduceAxesBoolCompute<gpu,
-  mshadow_op::product, mshadow_op::NonZero, 1>);
+.set_attr<FCompute>("FCompute<gpu>", ReduceAxesRTCCompute<NumpyReduceAxesBoolParam, 1>
+                                     {"NonZero", "red::product{}", false});
 
 }  // namespace op
 }  // namespace mxnet

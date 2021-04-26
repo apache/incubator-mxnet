@@ -370,6 +370,14 @@ inline mxnet::TShape GetReverseShape(const mxnet::Tuple<int>& shape) {
   return shape2;
 }
 
+#if !defined(__CUDACC__)
+#define NP_TENSORDOT_REDUCE_AXES(safe_acc, ...) \
+  ReduceAxesComputeImpl<xpu, mshadow_op::sum, safe_acc>(__VA_ARGS__)
+#else
+#define NP_TENSORDOT_REDUCE_AXES(safe_acc, ...) \
+  ReduceAxesRTCComputeImpl(__VA_ARGS__, "red::sum{}")
+#endif
+
 /**
  * calculates tensordot derivative.
  */
@@ -424,8 +432,8 @@ void TensordotBackwardImpl(const Tuple<int>& a_axes_summed,
                               workspace.stream_);
       ASSIGN_DISPATCH(dtypespace, kWriteTo, tensor_ * out_grad_);
 
-      ReduceAxesComputeImpl<xpu, mshadow_op::sum, true>(
-        ctx, {TBlob(dtypespace)}, {scalar_req}, {TBlob(scalar_grad_)}, scalar_grad_.shape_);
+      NP_TENSORDOT_REDUCE_AXES(true, ctx, {TBlob(dtypespace)}, {scalar_req},
+                               {TBlob(scalar_grad_)}, scalar_grad_.shape_);
     } else {
       // Two tensors of at least 1 dimensions.
       Tuple<int> a_axes_remained;
@@ -734,8 +742,8 @@ void TensordotIntAxesBackwardImpl(const int axes,
         ctx.requested[0].get_space_typed<xpu, 1, DType>(Shape1(out_grad.shape_.Size()), s);
       ASSIGN_DISPATCH(workspace, kWriteTo, tensor_ * out_grad_);
 
-      ReduceAxesComputeImpl<xpu, mshadow_op::sum, true>(
-        ctx, {TBlob(workspace)}, {scalar_req}, {TBlob(scalar_grad_)}, scalar_grad_.shape_);
+      NP_TENSORDOT_REDUCE_AXES(true, ctx, {TBlob(workspace)}, {scalar_req},
+                               {TBlob(scalar_grad_)}, scalar_grad_.shape_);
     } else {
       // Two tensors of at least 1 dimensions.
       Tuple<int> a_axes_summed;
@@ -758,6 +766,8 @@ void TensordotIntAxesBackwardImpl(const int axes,
     }
   });
 }
+
+#undef NP_TENSORDOT_REDUCE_AXES
 
 /**
  * backward function.

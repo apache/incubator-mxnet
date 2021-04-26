@@ -28,10 +28,10 @@ namespace mxnet {
 namespace op {
 
 NNVM_REGISTER_OP(_npi_argmax)
-.set_attr<FCompute>("FCompute<gpu>", NumpyArgMinMaxCompute<mshadow_op::argmax, gpu, int>);
+.set_attr<FCompute>("FCompute<gpu>", NumpyArgMinMaxRTCCompute{"red::argmax{}"});
 
 NNVM_REGISTER_OP(_npi_argmin)
-.set_attr<FCompute>("FCompute<gpu>", NumpyArgMinMaxCompute<mshadow_op::argmin, gpu, int>);
+.set_attr<FCompute>("FCompute<gpu>", NumpyArgMinMaxRTCCompute{"red::argmin{}"});
 
 }  // namespace op
 }  // namespace mxnet

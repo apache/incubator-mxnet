@@ -50,11 +50,6 @@ namespace rtc {
 // Direct inquiries to 30 Frost Street, Cambridge, MA 02140
 //
 const char special_functions_definitions[] = R"code(
-constexpr double DBL_MAX = 1.7976931348623157081e+308;
-constexpr float FLT_MAX = 3.4028234663852885981e+38;
-#define inf ((float)1e50)
-#define nan (inf - inf)
-
 namespace op {
 
 namespace special_functions {

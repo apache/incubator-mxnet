@@ -3006,8 +3006,10 @@ def test_np_binary_funcs():
                 if isinstance(dtype, tuple):
                     assert len(dtype) == 2
                     ldtype, rdtype = dtype
-                np_test_x1 = _np.random.uniform(low, high, lshape).astype(ldtype)
-                np_test_x2 = _np.random.uniform(low, high, rshape).astype(rdtype)
+                npldtype = ldtype if dtype != _np.float16 else _np.float32
+                nprdtype = rdtype if dtype != _np.float16 else _np.float32
+                np_test_x1 = _np.random.uniform(low, high, lshape).astype(ldtype).astype(npldtype)
+                np_test_x2 = _np.random.uniform(low, high, rshape).astype(rdtype).astype(nprdtype)
                 mx_test_x1 = mx.numpy.array(np_test_x1, dtype=ldtype)
                 mx_test_x2 = mx.numpy.array(np_test_x2, dtype=rdtype)
                 for hybridize in [True, False]:
@@ -4372,7 +4374,7 @@ def test_np_argmin_argmax():
         ((3, 5, 7), 2, False),
         ((3, 5, 7, 9, 11), -3, False),
     ]
-    dtypes = ['float16', 'float32', 'float64']
+    dtypes = ['float16', 'float32', 'float64', 'bool', 'int32']
     ops = ['argmin', 'argmax']
 
     class TestArgExtreme(HybridBlock):
@@ -4387,7 +4389,7 @@ def test_np_argmin_argmax():
     for op_name in ops:
         for shape, axis, throw_exception in workloads:
             for dtype in dtypes:
-                a = np.random.uniform(size=shape, dtype=dtype)
+                a = np.random.uniform(low=0, high=100, size=shape).astype(dtype)
                 if throw_exception:
                     # Cannot use assert_exception because sometimes the main thread
                     # proceeds to `assert False` before the exception is thrown

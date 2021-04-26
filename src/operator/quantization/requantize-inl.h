@@ -148,6 +148,7 @@ void RequantizeForward(const nnvm::NodeAttrs& attrs,
           temp_space.dptr_ + 8) + 1, Shape1(1), xpu::kDevMask, dev_id);
     Tensor<xpu, 1, char> workspace(
         temp_space.dptr_+2*actual_float_size+2*actual_quantized_size, Shape1(temp_reduce_size), s);
+#if !defined(__CUDACC__)
     broadcast::Reduce<red::minimum, 2, SrcDType, mshadow::op::identity>(
       s, actual_min_quantized.reshape(dst_shape),
       kWriteTo, workspace, inputs[0].reshape(src_shape));
@@ -158,6 +159,18 @@ void RequantizeForward(const nnvm::NodeAttrs& attrs,
     broadcast::Reduce<red::maximum, 2, SrcDType, mshadow::op::identity>(
       s, actual_max_quantized.reshape(dst_shape),
       kWriteTo, workspace, inputs[0].reshape(src_shape));
+#else
+    broadcast::RTCReduce(ctx, actual_min_quantized.reshape(dst_shape),
+                         kWriteTo, workspace, inputs[0].reshape(src_shape),
+                         "red::minimum{}", 2, "identity");
+    Kernel<QuantizedToFloatStruct, xpu>::Launch(s, 1,
+        actual_min_float.dptr_, actual_min_quantized.dptr<SrcDType>(),
+        inputs[1].dptr<float>(), inputs[2].dptr<float>());
+
+    broadcast::RTCReduce(ctx, actual_max_quantized.reshape(dst_shape),
+                         kWriteTo, workspace, inputs[0].reshape(src_shape),
+                         "red::maximum{}", 2, "identity");
+#endif
     Kernel<QuantizedToFloatStruct, xpu>::Launch(s, 1,
         actual_max_float.dptr_, actual_max_quantized.dptr<SrcDType>(),
         inputs[1].dptr<float>(), inputs[2].dptr<float>());
