@@ -183,12 +183,8 @@ def test_requantize_int32_to_int8():
                     out = F.contrib.requantize(x, min_range, max_range)
                 return out
 
-        if min_calib_range is None or max_calib_range is None:
-            requant = RequantizeBlock()
-            qdata_int8, min_output, max_output =  requant(qdata, min_range, max_range)
-        else:
-            requant = RequantizeBlock(min_calib_range, max_calib_range)
-            qdata_int8, min_output, max_output = requant(qdata, min_range, max_range)
+        requant = RequantizeBlock(min_calib_range, max_calib_range)  # m*_calib_ranges can be None
+        qdata_int8, min_output, max_output = requant(qdata, min_range, max_range)
 
         qdata_int8_np, min_output_np, max_output_np = requantize_baseline(qdata.asnumpy(), min_range.asscalar(),
                                                                           max_range.asscalar(),
