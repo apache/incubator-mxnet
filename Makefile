@@ -187,7 +187,23 @@ endif
 ifeq ($(USE_OPENCV), 1)
 	CFLAGS += -DMXNET_USE_OPENCV=1
 	ifneq ($(filter-out NONE, $(USE_OPENCV_INC_PATH)),)
-		CFLAGS += -I$(USE_OPENCV_INC_PATH)/include
+                ifneq ($(wildcard $(USE_OPENCV_INC_PATH)/include/opencv4/opencv2/opencv*),)
+                    opencv_inc = -I$(USE_OPENCV_INC_PATH)/include/opencv4
+                endif
+                ifneq ($(wildcard $(USE_OPENCV_INC_PATH)/include/opencv2/opencv*),)
+                    opencv_inc = -I$(USE_OPENCV_INC_PATH)/include
+                endif
+                ifneq ($(wildcard $(USE_OPENCV_INC_PATH)/opencv4/opencv2/opencv*),)
+                    opencv_inc = -I$(USE_OPENCV_INC_PATH)/opencv4
+                endif
+                ifneq ($(wildcard $(USE_OPENCV_INC_PATH)/opencv2/opencv*),)
+                    opencv_inc = -I$(USE_OPENCV_INC_PATH)
+                endif
+                ifneq ($(filter-out NONE, $(opencv_inc)),)
+                    CFLAGS += $(opencv_inc)
+                else
+$(error Cannot determine OpenCV include path)
+                endif
 		ifeq ($(filter-out NONE, $(USE_OPENCV_LIB_PATH)),)
 $(error Please add the path of OpenCV shared library path into `USE_OPENCV_LIB_PATH`, when `USE_OPENCV_INC_PATH` is not NONE)
 		endif
