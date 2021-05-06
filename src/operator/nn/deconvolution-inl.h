@@ -220,7 +220,11 @@ class DeconvolutionOp {
     using namespace mshadow::expr;
 
     if (param_.kernel.ndim() > 2) {
-      LOG(FATAL) << "If not using CUDNN, only 1D or 2D Deconvolution is supported";
+      LOG(FATAL) << "Only 1D or 2D Deconvolution is natively supported. "
+                 << ((MXNET_USE_MKLDNN || MXNET_USE_CUDNN)
+                         ? "Fallback to native implementation (if occurred) is therefore "
+                           "impossible for 3D Deconvolution."
+                         : "");
     }
 
     CHECK_EQ(req[deconv::kOut], kWriteTo);
