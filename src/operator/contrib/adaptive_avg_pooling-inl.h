@@ -43,6 +43,9 @@
 #include "../operator_common.h"
 #include "../mxnet_op.h"
 #include "../mshadow_op.h"
+#if MXNET_USE_MKLDNN == 1
+#include "../nn/mkldnn/mkldnn_adaptive_pooling-inl.h"
+#endif
 
 namespace mxnet {
 namespace op {
@@ -52,6 +55,9 @@ struct AdaptiveAvgPoolParam : public dmlc::Parameter<AdaptiveAvgPoolParam> {
   DMLC_DECLARE_PARAMETER(AdaptiveAvgPoolParam) {
     DMLC_DECLARE_FIELD(output_size).set_default(mxnet::Tuple<int>())
     .describe("int (output size) or a tuple of int for output (height, width).");
+  }
+  bool operator==(const AdaptiveAvgPoolParam &other) const {
+    return this->output_size == other.output_size;
   }
 };
 
@@ -116,7 +122,6 @@ inline void AdaptiveAvgPoolOpBackward(const nnvm::NodeAttrs& attrs,
   });
 }
 
-
 static bool AdaptiveAvgPoolOpInferShape(const nnvm::NodeAttrs& attrs,
                                        mxnet::ShapeVector *in_shape,
                                        mxnet::ShapeVector *out_shape) {
@@ -156,5 +161,14 @@ MSHADOW_XINLINE int get_stride(Tensor<xpu, Dim, DType> tensor, int idx) {
 
 }  // namespace op
 }  // namespace mxnet
-
+namespace std {
+template <>
+struct hash<mxnet::op::AdaptiveAvgPoolParam> {
+  size_t operator()(const mxnet::op::AdaptiveAvgPoolParam &val) {
+    size_t ret = 0;
+    ret = dmlc::HashCombine(ret, val.output_size);
+    return ret;
+  }
+};
+}  // namespace std
 #endif  // MXNET_OPERATOR_CONTRIB_ADAPTIVE_AVG_POOLING_INL_H_
