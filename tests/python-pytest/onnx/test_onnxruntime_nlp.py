@@ -30,7 +30,8 @@ import shutil
 
 @with_seed()
 @pytest.mark.parametrize('model_name', ['roberta_24_1024_16', 'roberta_12_768_12'])
-def test_roberta_inference_onnxruntime(tmp_path, model_name):
+@pytest.mark.parametrize('model_specific_logics', [None, 'gluonnlp_bert_uninterleaved'])
+def test_roberta_inference_onnxruntime(tmp_path, model_name, model_specific_logics):
     tmp_path = str(tmp_path)
     try:
         import gluonnlp as nlp
@@ -63,9 +64,19 @@ def test_roberta_inference_onnxruntime(tmp_path, model_name):
         params_file = "%s-0000.params" % prefix
         onnx_file = "%s.onnx" % prefix
         input_shapes = [(batch, seq_length), (batch,), (batch, num_masked_positions)]
+
+        # this is only for when model_specific_logics='gluonnlp_bert_uninterleaved'
+        cheat_sheet = {
+            'qkv_hidden': 768 if model_name == 'roberta_12_768_12' else 1024,
+            'num_heads': 12 if model_name == 'roberta_12_768_12' else 16,
+            'head_dim': 64
+        }
+
         converted_model_path = mx.onnx.export_model(sym_file, params_file, input_shapes,
                                                     [np.float32, np.float32, np.int32],
-                                                    onnx_file, verbose=True)
+                                                    onnx_file, verbose=True,
+                                                    model_specific_logics=model_specific_logics,
+                                                    cheat_sheet=cheat_sheet)
 
         sess_options = onnxruntime.SessionOptions()
         sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -84,15 +95,16 @@ def test_roberta_inference_onnxruntime(tmp_path, model_name):
 
 @with_seed()
 @pytest.mark.integration
-@pytest.mark.parametrize('model', ['bert_12_768_12', 'bert_24_1024_16'])
-def test_bert_inference_onnxruntime(tmp_path, model):
+@pytest.mark.parametrize('model_name', ['bert_12_768_12', 'bert_24_1024_16'])
+@pytest.mark.parametrize('model_specific_logics', [None, 'gluonnlp_bert_uninterleaved'])
+def test_bert_inference_onnxruntime(tmp_path, model_name, model_specific_logics):
     tmp_path = str(tmp_path)
     try:
         import gluonnlp as nlp
         dataset = 'book_corpus_wiki_en_uncased'
         ctx = mx.cpu(0)
         model, vocab = nlp.model.get_model(
-            name=model,
+            name=model_name,
             ctx=ctx,
             dataset_name=dataset,
             pretrained=True,
@@ -117,10 +129,19 @@ def test_bert_inference_onnxruntime(tmp_path, model):
         params_file = "%s-0000.params" % prefix
         onnx_file = "%s.onnx" % prefix
 
+        # this is only for when model_specific_logics='gluonnlp_bert_uninterleaved'
+        cheat_sheet = {
+            'qkv_hidden': 768 if model_name == 'bert_12_768_12' else 1024,
+            'num_heads': 12 if model_name == 'bert_12_768_12' else 16,
+            'head_dim': 64
+        }
 
         input_shapes = [(batch, seq_length), (batch, seq_length), (batch,)]
         input_types = [np.float32, np.float32, np.float32]
-        converted_model_path = mx.onnx.export_model(sym_file, params_file, input_shapes, input_types, onnx_file)
+        converted_model_path = mx.onnx.export_model(sym_file, params_file, input_shapes,
+                                                    input_types, onnx_file,
+                                                    model_specific_logics=model_specific_logics,
+                                                    cheat_sheet=cheat_sheet)
 
 
         # create onnxruntime session using the generated onnx file
@@ -140,7 +161,8 @@ def test_bert_inference_onnxruntime(tmp_path, model):
 
 @with_seed()
 @pytest.mark.parametrize('model_name', ['distilbert_6_768_12'])
-def test_distilbert_inference_onnxruntime(tmp_path, model_name):
+@pytest.mark.parametrize('model_specific_logics', [None, 'gluonnlp_bert_uninterleaved'])
+def test_distilbert_inference_onnxruntime(tmp_path, model_name, model_specific_logics):
     tmp_path = str(tmp_path)
     try:
         import gluonnlp as nlp
@@ -169,9 +191,18 @@ def test_distilbert_inference_onnxruntime(tmp_path, model_name):
         onnx_file = "%s.onnx" % prefix
 
         input_shapes = [(batch, seq_length), (batch,)]
+        # this is only for when model_specific_logics='gluonnlp_bert_uninterleaved'
+        cheat_sheet = {
+            'qkv_hidden': 768,
+            'num_heads': 12,
+            'head_dim': 64
+        }
         converted_model_path = mx.onnx.export_model(sym_file, params_file, input_shapes,
                                                     [np.float32, np.float32],
-                                                    onnx_file, verbose=True)
+                                                    onnx_file, verbose=True,
+                                                    model_specific_logics=model_specific_logics,
+                                                    cheat_sheet=cheat_sheet)
+        
         sess_options = onnxruntime.SessionOptions()
         sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
         sess = onnxruntime.InferenceSession(onnx_file, sess_options)
@@ -372,7 +403,8 @@ def test_awd_rnn_lstm_pretrained_inference_onnxruntime(tmp_path, model_name, seq
 
 @with_seed()
 @pytest.mark.parametrize('model_name', ['ernie_12_768_12'])
-def test_ernie_inference_onnxruntime(tmp_path, model_name):
+@pytest.mark.parametrize('model_specific_logics', [None, 'gluonnlp_bert_uninterleaved'])
+def test_ernie_inference_onnxruntime(tmp_path, model_name, model_specific_logics):
     tmp_path = str(tmp_path)
     try:
         import gluonnlp as nlp
@@ -408,8 +440,18 @@ def test_ernie_inference_onnxruntime(tmp_path, model_name):
 
         input_shapes = [(batch, seq_length), (batch, seq_length), (batch,)]
         input_types = [np.float32, np.float32, np.float32]
+
+        # this is only for when model_specific_logics='gluonnlp_bert_uninterleaved'
+        cheat_sheet = {
+            'qkv_hidden': 768,
+            'num_heads': 12,
+            'head_dim': 64
+        }
+
         converted_model_path = mx.onnx.export_model(sym_file, params_file, input_shapes,
-                                                    input_types, onnx_file)
+                                                    input_types, onnx_file,
+                                                    model_specific_logics=model_specific_logics,
+                                                    cheat_sheet=cheat_sheet)
 
         # create onnxruntime session using the generated onnx file
         ses_opt = onnxruntime.SessionOptions()

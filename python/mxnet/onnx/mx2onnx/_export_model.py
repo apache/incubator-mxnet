@@ -51,7 +51,7 @@ def get_operator_support(opset_version=None):
 def export_model(sym, params, in_shapes=None, in_types=np.float32,
                  onnx_file_path='model.onnx', verbose=False, dynamic=False,
                  dynamic_input_shapes=None, run_shape_inference=False, input_type=None,
-                 input_shape=None):
+                 input_shape=None, model_specific_logics=None, cheat_sheet=None):
     """Exports the MXNet model file, passed as a parameter, into ONNX model.
     Accepts both symbol,parameter objects as well as json and params filepaths as input.
     Operator support and coverage -
@@ -83,6 +83,11 @@ def export_model(sym, params, in_shapes=None, in_types=np.float32,
         This is the old name of in_types. We keep this parameter name for backward compatibility
     in_shapes : List of tuple
         This is the old name of in_shapes. We keep this parameter name for backward compatibility
+    model_specific_logics : str
+        Specifies if model-specific conversion logic should be used. Refer to ./_op_translations/
+    cheat_sheet : dict of str to str
+        This is a dict that stors some hyperparameters values or additional info about the model that
+        would be used in model-specific conversion functions
 
     Returns
     -------
@@ -122,12 +127,16 @@ def export_model(sym, params, in_shapes=None, in_types=np.float32,
         onnx_graph = converter.create_onnx_graph_proto(sym_obj, params_obj, in_shapes,
                                                        in_types_t,
                                                        verbose=verbose, opset_version=opset_version,
-                                                       dynamic=dynamic, dynamic_input_shapes=dynamic_input_shapes)
+                                                       dynamic=dynamic, dynamic_input_shapes=dynamic_input_shapes,
+                                                       model_specific_logics=model_specific_logics,
+                                                       cheat_sheet=cheat_sheet)
     elif isinstance(sym, symbol.Symbol) and isinstance(params, dict):
         onnx_graph = converter.create_onnx_graph_proto(sym, params, in_shapes,
                                                        in_types_t,
                                                        verbose=verbose, opset_version=opset_version,
-                                                       dynamic=dynamic, dynamic_input_shapes=dynamic_input_shapes)
+                                                       dynamic=dynamic, dynamic_input_shapes=dynamic_input_shapes,
+                                                       model_specific_logics=model_specific_logics,
+                                                       cheat_sheet=cheat_sheet)
     elif isinstance(sym, symbol.Symbol) and isinstance(params, list) and len(params) == 2:
         # when params contains arg_params and aux_params
         p = {}

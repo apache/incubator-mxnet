@@ -18,5 +18,6 @@
 # coding: utf-8
 """ONNX export op translation"""
 
+from . import _gluonnlp_bert_uninterleaved
 from . import _op_translations_opset12
 from . import _op_translations_opset13

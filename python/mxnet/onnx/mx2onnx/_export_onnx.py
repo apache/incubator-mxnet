@@ -92,13 +92,24 @@ class MXNetGraph(object):
         op = str(node["op"])
         opset_version = kwargs.get("opset_version", onnx_opset_version())
         # fallback to older opset versions if op is not registered in current version
+        convert_func = None
         for op_version in range(opset_version, 11, -1):
             if op_version not in MXNetGraph.registry_ or op not in MXNetGraph.registry_[op_version]:
-                if opset_version == 12:
-                    raise AttributeError("No conversion function registered for op type %s yet." % op)
                 continue
             convert_func = MXNetGraph.registry_[op_version][op]
             break
+
+        model_specific_logics = kwargs.get("model_specific_logics", None)
+        if model_specific_logics:
+            assert model_specific_logics in MXNetGraph.registry_,\
+                "Model specific converion logics for %s is not found" % model_specific_logics
+            if op in  MXNetGraph.registry_[model_specific_logics]:
+                logging.info("Found model-specific %s conversion logic for model %s",
+                             op, model_specific_logics)
+                convert_func = MXNetGraph.registry_[model_specific_logics][op]
+
+        if convert_func is None:
+            raise AttributeError("No conversion function registered for op type %s yet." % op)
 
         ret = convert_func(node, **kwargs)
         # in case the conversion function does not specify the returned dtype, we just return None
@@ -238,8 +249,9 @@ class MXNetGraph(object):
         return dict([(k.replace("arg:", "").replace("aux:", ""), v.asnumpy())
                      for k, v in weights_dict.items()])
 
-    def create_onnx_graph_proto(self, sym, params, in_shapes, in_types, verbose=False, opset_version=None,
-                                dynamic=True, dynamic_input_shapes=None):
+    def create_onnx_graph_proto(self, sym, params, in_shapes, in_types, verbose=False,
+                                opset_version=None, dynamic=True, dynamic_input_shapes=None,
+                                model_specific_logics=None, cheat_sheet=None):
         """Convert MXNet graph to ONNX graph
 
         Parameters
@@ -260,6 +272,11 @@ class MXNetGraph(object):
             If True will allow for dynamic input shapes to the model
         dynamic_input_shapes: list of tuple
             Specifies the dynamic input_shapes. If None then all dimensions are set to None
+        model_specific_logics: str
+            Specifies if model-specific conversion logic should be used. Refer to ./_op_translations/
+        cheat_sheet : dict of str to str
+            This is a dict that stors some hyperparameters values or additional info about the model that
+            would be used in model-specific conversion functions
 
         Returns
         -------
@@ -335,7 +352,8 @@ class MXNetGraph(object):
                     in_type=in_types[graph_input_idx],
                     proc_nodes=all_processed_nodes,
                     initializer=initializer,
-                    outputs_lookup=outputs_lookup)
+                    outputs_lookup=outputs_lookup,
+                )
                 graph_input_idx += 1
             else:
                 # Handle graph layers
@@ -348,7 +366,9 @@ class MXNetGraph(object):
                     initializer=initializer,
                     outputs_lookup=outputs_lookup,
                     idx=idx,
-                    opset_version=opset_version
+                    opset_version=opset_version,
+                    model_specific_logics=model_specific_logics,
+                    cheat_sheet=cheat_sheet
                 )
             if isinstance(converted, list):
                 # Collect all the node's output names
