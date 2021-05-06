@@ -718,6 +718,24 @@ def test_unix_python3_cpu() {
     }]
 }
 
+def test_unix_python3_memleak() {
+    return ['Python3: Memory Leak': {
+      node(NODE_LINUX_CPU) {
+        ws('workspace/ut-python3-cpu') {
+          try {
+            utils.unpack_and_init('cpu', mx_lib)
+            python3_ut('ubuntu_cpu')
+            utils.docker_run('ubuntu_valgrind', 'unittest_ubuntu_python3_quantization_gpu', true)
+            utils.publish_test_coverage()
+          } finally {
+            utils.collect_test_results_unix('nosetests_unittest.xml', 'nosetests_python3_cpu_unittest.xml')
+            utils.collect_test_results_unix('nosetests_quantization.xml', 'nosetests_python3_cpu_quantization.xml')
+          }
+        }
+      }
+    }]
+}
+
 def test_unix_python3_mkl_cpu() {
     return ['Python3: MKL-CPU': {
       node(NODE_LINUX_CPU) {

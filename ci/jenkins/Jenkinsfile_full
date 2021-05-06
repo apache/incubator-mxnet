@@ -33,7 +33,8 @@ def buildJobs = [
     'unix-gpu',
     'website',
     'windows-cpu',
-    'windows-gpu'
+    'windows-gpu',
+    'memoryleak'
 ]
 
 
