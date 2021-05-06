@@ -55,13 +55,17 @@ fi
 source $DIR/libz.sh
 source $DIR/libturbojpeg.sh
 source $DIR/libpng.sh
-source $DIR/libtiff.sh
+if [[ ! $ARCH == 'aarch64' ]]; then
+    source $DIR/libtiff.sh
+fi
 source $DIR/openssl.sh
 source $DIR/curl.sh
 source $DIR/eigen.sh
 source $DIR/opencv.sh
-source $DIR/protobuf.sh
-source $DIR/cityhash.sh
+if [[ ! $ARCH == 'aarch64' ]]; then
+    source $DIR/protobuf.sh
+    source $DIR/cityhash.sh
+fi
 source $DIR/zmq.sh
 source $DIR/lz4.sh
 

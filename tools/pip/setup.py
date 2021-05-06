@@ -28,7 +28,7 @@ from setuptools import setup, find_packages
 if platform.system() == 'Linux':
     sys.argv.append('--python-tag')
     sys.argv.append('py3')
-    sys.argv.append('--plat-name=manylinux2014_x86_64')
+    sys.argv.append('--plat-name=manylinux2014_'+platform.machine())
 elif platform.system() == 'Darwin':
     sys.argv.append('--python-tag')
     sys.argv.append('py3')
@@ -72,6 +72,23 @@ shutil.copytree(os.path.join(CURRENT_DIR, 'mxnet-build/python/mxnet'),
 shutil.copytree(os.path.join(CURRENT_DIR, 'mxnet-build/3rdparty/dmlc-core/tracker/dmlc_tracker'),
                 os.path.join(CURRENT_DIR, 'dmlc_tracker'))
 shutil.copy(LIB_PATH[0], os.path.join(CURRENT_DIR, 'mxnet'))
+
+package_data = {'mxnet': [os.path.join('mxnet', os.path.basename(LIB_PATH[0]))],
+                'dmlc_tracker': []}
+if platform.system() == 'Linux':
+    libdir, mxdir = os.path.dirname(LIB_PATH[0]), os.path.join(CURRENT_DIR, 'mxnet')
+    if os.path.exists(os.path.join(libdir, 'libgfortran.so.3')):
+        shutil.copy(os.path.join(libdir, 'libgfortran.so.3'), mxdir)
+        package_data['mxnet'].append('mxnet/libgfortran.so.3')
+    elif os.path.exists(os.path.join(libdir, 'libgfortran.so.4')):
+        shutil.copy(os.path.join(libdir, 'libgfortran.so.4'), mxdir)
+        package_data['mxnet'].append('mxnet/libgfortran.so.4')
+    else:
+        shutil.copy(os.path.join(libdir, 'libgfortran.so.5'), mxdir)
+        package_data['mxnet'].append('mxnet/libgfortran.so.5')
+    if os.path.exists(os.path.join(libdir, 'libopenblas.so.0')):
+        shutil.copy(os.path.join(libdir, 'libopenblas.so.0'), mxdir)
+        package_data['mxnet'].append('mxnet/libopenblas.so.0')
 
 # copy license and notice
 shutil.copytree(os.path.join(CURRENT_DIR, 'mxnet-build/licenses'),
@@ -148,22 +165,9 @@ if Features().is_enabled("MKLDNN"):
 
 short_description += ' This version uses {0}.'.format(' and '.join(libraries))
 
-package_data = {'mxnet': [os.path.join('mxnet', os.path.basename(LIB_PATH[0]))],
-                'dmlc_tracker': []}
 if Features().is_enabled("MKLDNN"):
     shutil.copytree(os.path.join(CURRENT_DIR, 'mxnet-build/3rdparty/mkldnn/include'),
                     os.path.join(CURRENT_DIR, 'mxnet/include/mkldnn'))
-if platform.system() == 'Linux':
-    libdir, mxdir = os.path.dirname(LIB_PATH[0]), os.path.join(CURRENT_DIR, 'mxnet')
-    if os.path.exists(os.path.join(libdir, 'libgfortran.so.3')):
-        shutil.copy(os.path.join(libdir, 'libgfortran.so.3'), mxdir)
-        package_data['mxnet'].append('mxnet/libgfortran.so.3')
-    else:
-        shutil.copy(os.path.join(libdir, 'libgfortran.so.4'), mxdir)
-        package_data['mxnet'].append('mxnet/libgfortran.so.4')
-    if os.path.exists(os.path.join(libdir, 'libopenblas.so.0')):
-        shutil.copy(os.path.join(libdir, 'libopenblas.so.0'), mxdir)
-        package_data['mxnet'].append('mxnet/libopenblas.so.0')
 
 # Copy licenses and notice
 for f in os.listdir('mxnet/licenses'):

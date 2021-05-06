@@ -25,6 +25,7 @@ export CURDIR=$PWD
 export DEPS_PATH=$PWD/staticdeps
 export VARIANT=$(echo $1 | tr '[:upper:]' '[:lower:]')
 export PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
+export ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
 
 if [[ $VARIANT == darwin* ]]; then
     export VARIANT="darwin"
@@ -48,10 +49,16 @@ else
 fi
 export MAKE="make $ADD_MAKE_FLAG"
 
-export CC="gcc -fPIC -mno-avx"
-export CXX="g++ -fPIC -mno-avx"
+if [[ $ARCH == 'aarch64' ]]; then
+    export CC="gcc -fPIC -moutline-atomics"
+    export CXX="g++ -fPIC -moutline-atomics"
+    export PKG_CONFIG_PATH=$DEPS_PATH/lib/pkgconfig:$DEPS_PATH/lib64/pkgconfig:$DEPS_PATH/lib/aarch64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
+else
+    export CC="gcc -fPIC -mno-avx"
+    export CXX="g++ -fPIC -mno-avx"
+    export PKG_CONFIG_PATH=$DEPS_PATH/lib/pkgconfig:$DEPS_PATH/lib64/pkgconfig:$DEPS_PATH/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
+fi
 export FC="gfortran"
-export PKG_CONFIG_PATH=$DEPS_PATH/lib/pkgconfig:$DEPS_PATH/lib64/pkgconfig:$DEPS_PATH/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
 export CPATH=$DEPS_PATH/include:$CPATH
 
 if [[ $PLATFORM == 'linux' && $VARIANT == cu* ]]; then

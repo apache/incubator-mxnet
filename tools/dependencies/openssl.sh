@@ -31,7 +31,7 @@ if [[ ! -f $DEPS_PATH/lib/libssl.a ]] || [[ ! -f $DEPS_PATH/lib/libcrypto.a ]]; 
     pushd .
     cd $DEPS_PATH/openssl-OpenSSL_$OPENSSL_VERSION
     if [[ $PLATFORM == 'linux' ]]; then
-        TARGET=linux-x86_64
+        TARGET=linux-$ARCH
     elif [[ $PLATFORM == 'darwin' ]]; then
         TARGET=darwin64-x86_64-cc
     fi

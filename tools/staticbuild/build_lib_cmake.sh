@@ -20,7 +20,12 @@
 set -eo pipefail
 
 # This script builds the libraries of mxnet.
-cmake_config=${CURDIR}/config/distribution/${PLATFORM}_${VARIANT}.cmake
+if [[ $ARCH == 'aarch64' ]]; then
+    cmake_config=${CURDIR}/config/distribution/${PLATFORM}_${ARCH}_${VARIANT}.cmake
+else
+    cmake_config=${CURDIR}/config/distribution/${PLATFORM}_${VARIANT}.cmake
+fi
+
 if [[ ! -f $cmake_config ]]; then
     >&2 echo "Couldn't find cmake config $make_config for the current settings."
     exit 1
@@ -39,14 +44,18 @@ rm -rf lib; mkdir lib;
 if [[ $PLATFORM == 'linux' ]]; then
     cp -L build/libmxnet.so lib/libmxnet.so
     cp -L staticdeps/lib/libopenblas.so lib/libopenblas.so.0
-    if [[ -f /usr/lib/gcc/x86_64-linux-gnu/4.8/libgfortran.so ]]; then
-        cp -L /usr/lib/gcc/x86_64-linux-gnu/4.8/libgfortran.so lib/libgfortran.so.3
-    elif [[ -f /usr/lib/x86_64-linux-gnu/libgfortran.so.3 ]]; then
-        cp -L /usr/lib/x86_64-linux-gnu/libgfortran.so.3 lib/libgfortran.so.3
+    if [[ $ARCH == 'aarch64' ]]; then
+        cp -L /usr/lib/aarch64-linux-gnu/libgfortran.so.5 lib/libgfortran.so.5
     else
-        cp -L /usr/lib/x86_64-linux-gnu/libgfortran.so.4 lib/libgfortran.so.4
+        if [[ -f /usr/lib/gcc/x86_64-linux-gnu/4.8/libgfortran.so ]]; then
+            cp -L /usr/lib/gcc/x86_64-linux-gnu/4.8/libgfortran.so lib/libgfortran.so.3
+        elif [[ -f /usr/lib/x86_64-linux-gnu/libgfortran.so.3 ]]; then
+            cp -L /usr/lib/x86_64-linux-gnu/libgfortran.so.3 lib/libgfortran.so.3
+        else
+            cp -L /usr/lib/x86_64-linux-gnu/libgfortran.so.4 lib/libgfortran.so.4
+        fi
+        cp -L /usr/lib/x86_64-linux-gnu/libquadmath.so.0 lib/libquadmath.so.0
     fi
-    cp -L /usr/lib/x86_64-linux-gnu/libquadmath.so.0 lib/libquadmath.so.0
 elif [[ $PLATFORM == 'darwin' ]]; then
     cp -L build/libmxnet.dylib lib/libmxnet.dylib
 fi
