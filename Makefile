@@ -18,6 +18,11 @@
 ROOTDIR = $(CURDIR)
 TPARTYDIR = $(ROOTDIR)/3rdparty
 
+# recursive wildcard function
+# first param: directory to discover
+# second param: wildcard to apply
+rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
+
 ifeq ($(OS),Windows_NT)
 	UNAME_S := Windows
 else
@@ -486,7 +491,7 @@ endif
 
 all: lib/libmxnet.a lib/libmxnet.so $(BIN) extra-packages extension_libs
 
-SRC = $(wildcard src/*/*/*/*.cc src/*/*/*.cc src/*/*.cc src/*.cc)
+SRC = $(call rwildcard,src,*.cc)
 
 ifeq ($(USE_INTGEMM), 1)
 	ifndef INTGEMM_PATH
@@ -527,8 +532,9 @@ else
 	SRC := $(filter-out $(INTGEMM_OPS),$(SRC))
 endif
 
+
 OBJ = $(patsubst %.cc, build/%.o, $(SRC))
-CUSRC = $(wildcard src/*/*/*/*.cu src/*/*/*.cu src/*/*.cu src/*.cu)
+CUSRC = $(call rwildcard,src,*.cu)
 CUOBJ = $(patsubst %.cu, build/%_gpu.o, $(CUSRC))
 
 ifeq ($(USE_TVM_OP), 1)
@@ -711,7 +717,7 @@ lib/libtvmop.so: lib/libtvm_runtime.so $(wildcard contrib/tvmop/*/*.py contrib/t
 	    python3 $(ROOTDIR)/contrib/tvmop/compile.py $(TVM_OP_COMPILE_OPTIONS)
 
 NNVM_INC = $(wildcard $(NNVM_PATH)/include/*/*.h)
-NNVM_SRC = $(wildcard $(NNVM_PATH)/src/*/*/*.cc $(NNVM_PATH)/src/*/*.cc $(NNVM_PATH)/src/*.cc)
+NNVM_SRC = $(call rwildcard,$(NNVM_PATH)/src,*.cc)
 $(NNVM_PATH)/lib/libnnvm.a: $(NNVM_INC) $(NNVM_SRC)
 	+ cd $(NNVM_PATH); $(MAKE) lib/libnnvm.a DMLC_CORE_PATH=$(DMLC_CORE); cd $(ROOTDIR)
 
@@ -851,10 +857,8 @@ endif
 
 clean_all: clean
 
--include build/*.d
--include build/*/*.d
--include build/*/*/*.d
--include build/*/*/*/*.d
+-include $(call rwildcard,build,*.d)
+
 ifneq ($(EXTRA_OPERATORS),)
 	-include $(patsubst %, %/*.d, $(EXTRA_OPERATORS)) $(patsubst %, %/*/*.d, $(EXTRA_OPERATORS))
 endif
