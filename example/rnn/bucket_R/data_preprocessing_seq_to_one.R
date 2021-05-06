@@ -17,7 +17,7 @@
 
 # download the IMDB dataset
 if (!file.exists("data/aclImdb_v1.tar.gz")) {
-  download.file("http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz", 
+  download.file("https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz", 
                 "data/aclImdb_v1.tar.gz")
   untar("data/aclImdb_v1.tar.gz", exdir = "data/")
 }
