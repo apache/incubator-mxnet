@@ -1660,21 +1660,37 @@ def test_deconvolution_forward_with_bias():
     def check_deconvolution_forward_with_bias(shape=(1, 16, 5, 5), num_filter=32, num_group=1, kernel=(3, 3), pad=(1, 1)):
         x = mx.sym.Variable('x')
         w = mx.sym.Variable('w')
-        input_data = mx.random.uniform(-5, 5, shape, ctx=mx.cpu())
-        y = mx.sym.Deconvolution(data=x, weight=w, num_filter=num_filter, num_group=num_group, kernel=kernel, no_bias=False, pad=pad)
-        exe = y.simple_bind(ctx=mx.cpu(), x=shape, grad_req='null')
+        b = mx.sym.Variable('b')
+        y_nb = mx.sym.Deconvolution(data=x, weight=w, num_filter=num_filter, num_group=num_group, kernel=kernel, no_bias=True, pad=pad)
+        y_b = mx.sym.Deconvolution(data=x, weight=w, bias=b, num_filter=num_filter, num_group=num_group, kernel=kernel, no_bias=False, pad=pad)
+        
+        
+        exe_nb = y_nb.simple_bind(ctx=mx.cpu(), x=shape, grad_req='null')
+        exe_b = y_b.simple_bind(ctx=mx.cpu(), x=shape, grad_req='null')
 
-        exe.arg_arrays[0][:] = np.random.normal(size=exe.arg_arrays[0].shape)
-        exe.arg_arrays[1][:] = np.random.normal(size=exe.arg_arrays[1].shape)
+        
+        data = np.random.uniform(-5, 5, size=exe_b.arg_arrays[0].shape)
+        weights = np.random.normal(size=exe_b.arg_arrays[1].shape)
+        bias = np.random.normal(size=exe_b.arg_arrays[2].shape)
+        
+        def exe_forward(exe):
+            exe.arg_arrays[0][:] = data
+            exe.arg_arrays[1][:] = weights
+            if len(exe.arg_arrays) == 3:
+                exe.arg_arrays[2][:] = bias
+            return exe.forward(is_train=False)[0].asnumpy()
+        
+        out_nb = exe_forward(exe_nb)
+        out_b = exe_forward(exe_b)
+        bias = np.broadcast_to(bias, [np.prod(out_nb.shape[2:])] + [num_filter]).T
+        bias = np.broadcast_to(bias.reshape((num_filter, *out_nb.shape[2:])), out_b.shape)
+        assert_almost_equal(out_nb + bias, out_b)
 
-        exe.forward(is_train=False)
-        o = exe.outputs[0]
-        t = o.asnumpy()
+
     check_deconvolution_forward_with_bias((1, 16, 5), 32, 1, (3,), (1,))
     check_deconvolution_forward_with_bias((32, 16, 5), 32, 1, (3,), (1,))
     check_deconvolution_forward_with_bias((1, 16, 5, 5), 32, 1, (3, 3), (1, 1))
     check_deconvolution_forward_with_bias((32, 16, 5, 5), 32, 1, (3, 3), (1, 1))
-
 
 def check_nearest_upsampling_with_shape(shapes, scale, root_scale):
     arr = {'arg_%d'%i: mx.random.uniform(-10.0, 10.0, shape, ctx=mx.cpu()).copyto(default_context()) for i, shape in zip(range(len(shapes)), shapes)}
