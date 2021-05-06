@@ -100,7 +100,7 @@ static void VerifyDefMem(const mkldnn::memory &mem) {
 
 TEST(MKLDNN_UTIL_FUNC, MemFormat) {
   // Check whether the number of format is correct.
-  CHECK_EQ(mkldnn_format_tag_last, 222);
+  CHECK_EQ(mkldnn_format_tag_last, 363);
   CHECK_EQ(mkldnn_nchw, 5);
   CHECK_EQ(mkldnn_oihw, 5);
 }

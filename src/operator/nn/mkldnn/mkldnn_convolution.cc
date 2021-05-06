@@ -431,7 +431,6 @@ void MKLDNNConvolutionForwardFullFeature(const MKLDNNConvFullParam &param, const
       weight_mem = GetWeights(weight, fwd->GetPd().weights_desc(), param.conv_param.num_group);
     } else {
       weight_mem = weight.GetMKLDNNData();
-      CHECK(weight_mem->get_desc() == fwd->GetPd().weights_desc());
     }
   }
   mkldnn_output_t out_mem;
