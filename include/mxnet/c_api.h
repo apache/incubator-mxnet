@@ -227,6 +227,12 @@ typedef int (*CustomFunctionDelFunc)(void* /*state*/);
  */
 MXNET_DLL const char *MXGetLastError();
 
+/**
+ * \brief return the number of bytes being used 
+ * on given dev_type and dev_id
+ */
+MXNET_DLL size_t MXGetBytesInUse(int dev_type, int dev_id);
+
 //-------------------------------------
 // Part 0: Global State setups
 //-------------------------------------

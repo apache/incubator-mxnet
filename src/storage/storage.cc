@@ -40,6 +40,7 @@ class StorageImpl : public Storage {
   void Free(Handle handle) override;
   void DirectFree(Handle handle) override;
   void ReleaseAll(Context ctx) override;
+  size_t GetMemoryInUseInBytes(const Context &ctx) override;
   void SharedIncrementRefCount(Handle handle) override;
   StorageImpl() {}
   virtual ~StorageImpl() = default;
@@ -144,6 +145,19 @@ void StorageImpl::Free(Storage::Handle handle) {
 
   manager->Free(handle);
   profiler_.OnFree(handle);
+}
+
+size_t StorageImpl::GetMemoryInUseInBytes(const Context &ctx) {
+  auto &&device = storage_managers_.at(ctx.dev_type);
+  std::shared_ptr<storage::StorageManager> manager = device.Get(
+    ctx.real_dev_id(), []() {
+      LOG(WARNING) << "Cannot get memory usage for a device you have not allocated";
+        return nullptr;
+      });
+  if (nullptr == manager)
+    return 0;
+  else
+    return manager->GetMemoryInUseInBytes();
 }
 
 void StorageImpl::DirectFree(Storage::Handle handle) {

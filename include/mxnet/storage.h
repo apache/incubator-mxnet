@@ -70,6 +70,9 @@ class Storage {
     this->Alloc(&hd);
     return hd;
   }
+
+  virtual size_t GetMemoryInUseInBytes(const Context &ctx) = 0;
+
   /*!
    * \brief Allocate a new contiguous memory for a given size.
    * \param handle handle initialized with size and ctx

@@ -56,6 +56,16 @@ typedef void (*PredMonitorCallback)(const char*,
                                     NDArrayHandle,
                                     void*);
 
+/*! \brief enum of NDArray dtypes */
+enum DType {
+    kDTypeFloat32 = 0,
+    kDTypeFloat64 = 1,
+    kDTypeFloat16 = 2,
+    kDTypeUInt8 = 3,
+    kDTypeInt32 = 4,
+    kDTypeInt8 = 5,
+    kDTypeInt64 = 6
+};
 /*!
  * \brief Get the last error happeneed.
  * \return The last error happened at the predictor.
@@ -197,6 +207,92 @@ MXNET_DLL int MXPredCreateMultiThread(const char* symbol_json_str,
                                       PredictorHandle* out);
 
 /*!
+ * \brief Creates a predictor with all input data and params.
+ * The order of input_data, input_shape_indptr and input_shape_data
+ * should follow the order of input_keys.
+ * \param symbol_json_str The JSON string of the symbol
+ * \param dev_type The device type, 1: cpu, 2:gpu
+ * \param dev_id The device id of the predictor
+ * \param input_keys The names of input data and params
+ * \param input_data The array of input data and param pointers
+ * \param input_dtypes The array of input data dtypes
+ * \param input_keys The name of input argument.
+ * \param input_shape_indptr Index pointer of shapes of each input node.
+ *    The length of this array = num_input_nodes + 1.
+ * \param input_shape_data A flatted data of shapes of each input node.
+ * \param num_input_nodes Number of input nodes to the net
+ * \param out The created predictor handle.
+ * \return 0 when success, -1 when failure.
+ */
+MXNET_DLL int MXPredCreateEx2(const char* symbol_json_str,
+                              int dev_type, int dev_id,
+                              const char** input_keys,
+                              const void** input_data,
+                              const int* input_dtypes,
+                              const mx_uint* input_shape_indptr,
+                              const mx_uint* input_shape_data,
+                              const mx_uint num_input_nodes,
+                              PredictorHandle* out);
+/*!
+ * \brief Creates a predictor with customized outputs.
+ * The order of input_data, input_shape_indptr and input_shape_data
+ * should follow the order of input_keys.
+ * \param symbol_json_str The JSON string of the symbol
+ * \param dev_type The device type, 1: cpu, 2:gpu
+ * \param dev_id The device id of the predictor
+ * \param input_keys The names of input data and params
+ * \param input_data The array of input data and param pointers
+ * \param input_keys The name of input argument.
+ * \param input_shape_indptr Index pointer of shapes of each input node.
+ *    The length of this array = num_input_nodes + 1.
+ * \param input_shape_data A flatted data of shapes of each input node.
+ * \param num_input_nodes Number of input nodes to the net
+ * \param num_output_nodes Number of output nodes to the net,
+ * \param output_keys The name of output argument.
+ * \param out The created predictor handle.
+ * \return 0 when success, -1 when failure.
+ */
+MXNET_DLL int MXPredCreatePartialOutEx(const char* symbol_json_str,
+                                       int dev_type, int dev_id,
+                                       const char** input_keys,
+                                       const mx_float** input_data,
+                                       const mx_uint* input_shape_indptr,
+                                       const mx_uint* input_shape_data,
+                                       const mx_uint num_input_nodes,
+                                       const mx_uint num_output_nodes,
+                                       const char** output_keys,
+                                       PredictorHandle* out);
+/*!
+ * \brief Creates a predictor with customized outputs.
+ * The order of input_data, input_shape_indptr and input_shape_data
+ * should follow the order of input_keys.
+ * \param symbol_json_str The JSON string of the symbol
+ * \param dev_type The device type, 1: cpu, 2:gpu
+ * \param dev_id The device id of the predictor
+ * \param input_keys The names of input data and params
+ * \param input_data The array of input data and param pointers
+ * \param input_dtypes The array of input data dtypes
+ * \param input_shape_indptr Index pointer of shapes of each input node.
+ *    The length of this array = num_input_nodes + 1.
+ * \param input_shape_data A flatted data of shapes of each input node.
+ * \param num_input_nodes Number of input nodes to the net
+ * \param num_output_nodes Number of output nodes to the net,
+ * \param output_keys The name of output argument.
+ * \param out The created predictor handle.
+ * \return 0 when success, -1 when failure.
+ */
+MXNET_DLL int MXPredCreatePartialOutEx2(const char* symbol_json_str,
+                                        int dev_type, int dev_id,
+                                        const char** input_keys,
+                                        const void** input_data,
+                                        const int* input_dtypes,
+                                        const mx_uint* input_shape_indptr,
+                                        const mx_uint* input_shape_data,
+                                        const mx_uint num_input_nodes,
+                                        const mx_uint num_output_nodes,
+                                        const char** output_keys,
+                                        PredictorHandle* out);
+/*!
  * \brief Change the input shape of an existing predictor.
  * \param num_input_nodes Number of input nodes to the net,
  *    For feedforward net, this is 1.
@@ -217,6 +313,17 @@ MXNET_DLL int MXPredReshape(uint32_t num_input_nodes,
                   const uint32_t* input_shape_data,
                   PredictorHandle handle,
                   PredictorHandle* out);
+/*!
+ * \brief Get the list of output node names.
+ * The returned out_names is valid until MXPredFree is called on the given PredictorHandle.
+ * \param handle The handle of the predictor.
+ * \param out_names_length Used to hold The length of the out_names array.
+ * \param out_names Used to hold the array of output node names.
+ * \return 0 when success, -1 when failure.
+ */
+MXNET_DLL int MXPredGetOutputNames(PredictorHandle handle,
+                                   mx_uint *out_names_length,
+                                   const char ***out_names);
 /*!
  * \brief Get the shape of output node.
  *  The returned shape_data and shape_ndim is only valid before next call to MXPred function.
@@ -241,7 +348,32 @@ MXNET_DLL int MXPredGetOutputShape(PredictorHandle handle,
 MXNET_DLL int MXPredGetOutputType(PredictorHandle handle,
                                   uint32_t out_index,
                                   int* out_dtype);
-
+/*!
+ * \brief Get the shape of input node.
+ * \param handle The handle of the predictor.
+ * \param key The name of input argument.
+ * \param shape_data Used to hold pointer to the shape data.
+ * \param shape_ndim Used to hold shape dimension.
+ * \param key_found Used to return if input key is a valid argument
+ * \return 0 when success, -1 when failure.
+ */
+MXNET_DLL int MXPredGetInputShape(PredictorHandle handle,
+                                   const char* key,
+                                   mx_uint** shape_data,
+                                   mx_uint* shape_ndim,
+                                   int* key_found);
+/*!
+ * \brief Get the dtype of input node.
+ * \param handle The handle of the predictor.
+ * \param key The name of input argument.
+ * \param dtype Used to hold pointer to the dtype
+ * \param key_found Used to return if input key is a valid argument.
+ * \return 0 when success, -1 when failure.
+ */
+MXNET_DLL int MXPredGetInputType(PredictorHandle handle,
+                                  const char* key,
+                                  int* dtype,
+                                  int* key_found);
 /*!
  * \brief Set the input data of predictor.
  * \param handle The predictor handle.
@@ -325,6 +457,25 @@ MXNET_DLL int MXNDListGet(NDListHandle handle,
                           const float** out_data,
                           const uint32_t** out_shape,
                           uint32_t* out_ndim);
+
+/*!
+ * \brief Get an element from list
+ * \param handle The handle to the NDArray
+ * \param index The index in the list
+ * \param out_key The output key of the item
+ * \param out_data The data region of the item
+ * \param out_dtype The dtype of the item.
+ * \param out_shape The shape of the item.
+ * \param out_ndim The number of dimension in the shape.
+ * \return 0 when success, -1 when failure.
+ */
+MXNET_DLL int MXNDListGetEx(NDListHandle handle,
+                            mx_uint index,
+                            const char** out_key,
+                            const void** out_data,
+                            int* out_dtype,
+                            const mx_uint** out_shape,
+                            mx_uint* out_ndim);
 
 /*!
  * \brief set a call back to notify the completion of operation and allow for

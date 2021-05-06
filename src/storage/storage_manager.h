@@ -52,6 +52,11 @@ class StorageManager {
    * \param handle Handle struct.
    */
   virtual void DirectFree(Storage::Handle handle) = 0;
+
+  virtual size_t GetMemoryInUseInBytes() {
+    LOG(FATAL) << "GetMemoryInUseInBytes API is not implemented";
+    return 0;
+  }
   /*!
   * \brief Release all memory if using a pool storage manager
   *
