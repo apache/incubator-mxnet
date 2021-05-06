@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(curr_path, '../../../python'))
 
 import models
 from contextlib import contextmanager
+from nose import SkipTest
 from nose.tools import make_decorator, assert_raises
 import tempfile
 
@@ -216,6 +217,9 @@ def with_seed(seed=None):
                 logger.log(log_level, pre_test_msg)
                 try:
                     orig_test(*args, **kwargs)
+                except SkipTest:
+                    # no need to log seed info for skipped nosetests
+                    raise
                 except:
                     # With exceptions, repeat test_msg at WARNING level to be sure it's seen.
                     if log_level < logging.WARNING:
