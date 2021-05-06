@@ -349,7 +349,7 @@ To install R and the devtools, run
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y r-base-core r-cran-devtools libcairo2-dev libxml2-dev
+sudo apt-get install -y r-base-core r-cran-devtools libcairo2-dev libxml2-dev libtiff-dev
 ```
 
 `libxml2-dev` is required for the `roxygen2` dependency and `libcairo2-dev` is
