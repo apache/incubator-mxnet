@@ -29,6 +29,58 @@ From the 1.9 release and on, the ONNX export module has become an offical, built
 If you are a user of earlier MXNet versions and do not want to upgrade MXNet, you can still enjoy the latest ONNX suppor by pulling the MXNet source code and building the wheel for only the mx2onnx module. Just do `cd python/mxnet/onnx` and then build the wheel with `python3 -m build`. You should be able to find the wheel under `python/mxnet/onnx/dist/mx2onnx-0.0.0-py3-none-any.whl` and install it with `pip install mx2onnx-0.0.0-py3-none-any.whl`. You should be able to access the module with `import mx2onnx` then.
 
 ### APIs
+```python
+mxnet.onnx.export_model(sym, params, in_shapes=None, in_types=np.float32,
+                 onnx_file_path='model.onnx', verbose=False, dynamic=False,
+                 dynamic_input_shapes=None, run_shape_inference=False, input_type=None,
+                 input_shape=None)
+```
+Exports the MXNet model file into ONNX model.
+
+Parameters:
+
+    sym : str or symbol object
+        Path to the MXNet json file or Symbol object
+    params : str or dict or list of dict
+        str - Path to the MXNet params file
+        dict - MXNet params dictionary (Including both arg_params and aux_params)
+        list - list of length 2 that contains MXNet arg_params and aux_params
+    in_shapes : List of tuple
+        Input shape of the model e.g [(1,3,224,224)]
+    in_types : data type or list of data types
+        Input data type e.g. np.float32, or [np.float32, np.int32]
+    onnx_file_path : str
+        Path where to save the generated onnx file
+    verbose : Boolean
+        If True will print logs of the model conversion
+    dynamic: Boolean
+        If True will allow for dynamic input shapes to the model
+    dynamic_input_shapes: list of tuple
+        Specifies the dynamic input_shapes. If None then all dimensions are set to None
+    run_shape_inference : Boolean
+        If True will run shape inference on the model
+    input_type : data type or list of data types
+        This is the old name of in_types. We keep this parameter name for backward compatibility
+    in_shapes : List of tuple
+        This is the old name of in_shapes. We keep this parameter name for backward compatibility
+
+Returns:
+
+    onnx_file_path : str
+        Onnx file path
+
+#### Model with Multiple Input
+When the model has multiple input, all the input shapes and dtypes should be provided with `in_shapes` and `in_dtypes`. Note that the shape/dtype in `in_shapes`/`in_dtypes` must follow the same order as in the MXNet model symbol file. If `in_dtypes` is provided as a single data type, the type will be applied to all input nodes.
+
+#### Dynamic Shape Input
+By setting up optional flags in export_model API, users have the control of partially/fully dynamic shape input export. The flag `dynamic` is set to switch on dynamic shape input export, and `dynamic_input_shapes` is used to specify which dimensions are dynamic `None` or any string variable can be used to represent a dynamic shape dimension.
+
+```python
+# The first input dimension will be dynamic in this case
+dynamic_input_shapes = [(None, 3, 224, 224)]
+mx.onnx.export_model(mx_sym, mx_params, in_shapes, in_dtypes, onnx_file,
+                     dynamic=True, dynamic_input_shapes=dynamic_input_shapes)
+```
 
 ### Operator Support Matrix
 |MXNet Op|ONNX Version|
