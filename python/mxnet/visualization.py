@@ -310,9 +310,19 @@ def plot_network(symbol, title="plot", save_format='pdf', shape=None, dtype=None
     def looks_like_weight(name):
         """Internal helper to figure out if node should be hidden with `hide_weights`.
         """
+        idx = name.find("_quantize")
+        if idx >= 0:
+            name = name[0:idx]
         weight_like = ('_weight', '_bias', '_beta', '_gamma',
                        '_moving_var', '_moving_mean', '_running_var', '_running_mean')
+
         return name.endswith(weight_like)
+
+    def to_shorter_name(name):
+        if name.startswith("_contrib_"):
+            return name.replace("_contrib_", "")
+        return name
+
 
     # make nodes
     hidden_nodes = set()
@@ -334,8 +344,9 @@ def plot_network(symbol, title="plot", save_format='pdf', shape=None, dtype=None
             attr["shape"] = "oval" # inputs get their own shape
             label = node["name"]
             attr["fillcolor"] = cm[0]
-        elif op == "Convolution":
-            label = "Convolution\n{kernel}/{stride}, {filter}".format(
+        elif op == "Convolution" or op == "_contrib_quantized_conv":
+            label = "{op}\n{kernel}/{stride}, {filter}".format(
+                op=to_shorter_name(op),
                 kernel="x".join(_str2tuple(node["attrs"]["kernel"])),
                 stride="x".join(_str2tuple(node["attrs"]["stride"]))
                 if "stride" in node["attrs"] else "1",
@@ -356,23 +367,35 @@ def plot_network(symbol, title="plot", save_format='pdf', shape=None, dtype=None
             act_type = attrs.get("act_type", "Leaky") if attrs else "Leaky"
             label = 'LeakyReLU\n{activation}'.format(activation=act_type)
             attr["fillcolor"] = cm[2]
-        elif op == "Pooling":
-            label = "Pooling\n{pooltype}, {kernel}/{stride}".format(pooltype=node["attrs"]["pool_type"],
-                                                                    kernel="x".join(_str2tuple(node["attrs"]["kernel"]))
-                                                                    if "kernel" in node["attrs"] else "[]",
-                                                                    stride="x".join(_str2tuple(node["attrs"]["stride"]))
-                                                                    if "stride" in node["attrs"] else "1")
+        elif op == "Pooling" or op == "_contrib_quantized_pooling":
+            label = "{op}\n{pooltype}, {kernel}/{stride}".format(op=to_shorter_name(op),
+                                                                 pooltype=node["attrs"]["pool_type"],
+                                                                 kernel="x".join(_str2tuple(node["attrs"]["kernel"]))
+                                                                 if "kernel" in node["attrs"] else "[]",
+                                                                 stride="x".join(_str2tuple(node["attrs"]["stride"]))
+                                                                 if "stride" in node["attrs"] else "1")
             attr["fillcolor"] = cm[4]
         elif op in ("Concat", "Flatten", "Reshape"):
             attr["fillcolor"] = cm[5]
         elif op == "Softmax":
             attr["fillcolor"] = cm[6]
+        elif op == "_contrib_dequantize" or op == "_contrib_requantize" or op == '_contrib_quantized_act':
+            label = to_shorter_name(op)
+            attr["fillcolor"] = cm[2]
         else:
             attr["fillcolor"] = cm[7]
             if op == "Custom":
                 label = node["attrs"]["op_type"]
 
         dot.node(name=name, label=label, **attr)
+
+    def to_shape_key(input_name):
+        output = input_name + '_output'
+        if output in shape_dict:
+            return output
+        else:
+            return input_name + '_output0'
+
 
     # add edges
     for node in nodes:          # pylint: disable=too-many-nested-blocks
@@ -386,6 +409,9 @@ def plot_network(symbol, title="plot", save_format='pdf', shape=None, dtype=None
             if node['op'] == '_contrib_BilinearResize2D':
                 inputs = [inputs[0]]
 
+            if node['op'].find("quantize") > 0:
+                inputs = [inputs[0]]
+
             for item in inputs:
                 input_node = nodes[item[0]]
                 input_name = input_node["name"]
@@ -394,7 +420,7 @@ def plot_network(symbol, title="plot", save_format='pdf', shape=None, dtype=None
                     # add shapes
                     if draw_shape:
                         if input_node["op"] != "null":
-                            key = input_name + "_output"
+                            key = to_shape_key(input_name)
                             if "attrs" in input_node:
                                 params = input_node["attrs"]
                                 if "num_outputs" in params:
@@ -409,7 +435,7 @@ def plot_network(symbol, title="plot", save_format='pdf', shape=None, dtype=None
                             attr["label"] = label
                     if draw_type:
                         if input_node["op"] != "null":
-                            key = input_name + "_output"
+                            key = to_shape_key(input_name)
                             if "attrs" in input_node:
                                 params = input_node["attrs"]
                                 if "num_outputs" in params:
