@@ -38,8 +38,6 @@ static void MKLDNNQuantizedConvForward(const nnvm::NodeAttrs& attrs,
                                        const std::vector<NDArray> &in_data,
                                        const std::vector<OpReqType> &req,
                                        const std::vector<NDArray> &out_data) {
-  CHECK_EQ(in_data[0].dtype(), mshadow::kUint8)
-    << "mkldnn_quantized_conv op only supports uint8 as input type";
   TmpMemMgr::Get()->Init(ctx.requested[conv::kTempSpace]);
   NDArray weight = in_data[conv::kWeight];
   ConvolutionParam param = nnvm::get<ConvolutionParam>(attrs.parsed);
