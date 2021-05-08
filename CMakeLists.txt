@@ -229,29 +229,23 @@ if(USE_TENSORRT)
   message(STATUS "Using TensorRT")
   set(ONNX_PATH 3rdparty/onnx-tensorrt/third_party/onnx/build/)
   set(ONNX_TRT_PATH 3rdparty/onnx-tensorrt/build/)
+  add_definitions(-DMXNET_USE_TENSORRT=1)
+  add_definitions(-DONNX_NAMESPACE=onnx)
+  add_definitions(-DONNX_ML=1)
+  set(BUILD_SHARED_LIBS_SAVED "${BUILD_SHARED_LIBS}")
+  set(BUILD_SHARED_LIBS ON)
+  add_subdirectory(3rdparty/onnx-tensorrt/ EXCLUDE_FROM_ALL)
+  set(BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS_SAVED}")
 
   include_directories(${ONNX_PATH})
   include_directories(3rdparty/onnx-tensorrt/)
   include_directories(3rdparty/)
   include_directories(3rdparty/onnx-tensorrt/third_party/onnx/)
-  add_definitions(-DMXNET_USE_TENSORRT=1)
-  add_definitions(-DONNX_NAMESPACE=onnx)
-  add_definitions(-DONNX_ML=1)
 
   find_package(Protobuf REQUIRED)
 
-  find_library(ONNX_LIBRARY NAMES libonnx.so REQUIRED
-          PATHS ${ONNX_PATH}
-          DOC "Path to onnx library.")
-  find_library(ONNX_PROTO_LIBRARY NAMES libonnx_proto.so REQUIRED
-          PATHS ${ONNX_PATH}
-          DOC "Path to onnx_proto library.")
-  find_library(ONNX_TRT_PARSER_LIBRARY NAMES libnvonnxparser.so REQUIRED
-          PATHS ${ONNX_TRT_PATH}
-          DOC "Path to onnx_proto parser library.")
-
-  list(APPEND mxnet_LINKER_LIBS libnvinfer.so ${ONNX_TRT_PARSER_LIBRARY}
-          ${ONNX_PROTO_LIBRARY} ${ONNX_LIBRARY} ${PROTOBUF_LIBRARY})
+  list(APPEND mxnet_LINKER_LIBS libnvinfer.so nvonnxparser
+          onnx_proto onnx ${PROTOBUF_LIBRARY})
 endif()
 
 if(USE_MKL_LAYERNORM)

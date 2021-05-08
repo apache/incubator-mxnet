@@ -544,43 +544,12 @@ build_ubuntu_gpu_tensorrt() {
 
     export CC=gcc-7
     export CXX=g++-7
-    export ONNX_NAMESPACE=onnx
-
-    # Build ONNX
-    pushd .
-    echo "Installing ONNX."
-    cd 3rdparty/onnx-tensorrt/third_party/onnx
-    rm -rf build
-    mkdir -p build
-    cd build
-    cmake -DCMAKE_CXX_FLAGS=-I/usr/include/python${PYVER} -DBUILD_SHARED_LIBS=ON ..
-    make -j$(nproc)
-    export LIBRARY_PATH=`pwd`:`pwd`/onnx/:$LIBRARY_PATH
-    export CPLUS_INCLUDE_PATH=`pwd`:$CPLUS_INCLUDE_PATH
-    export CXXFLAGS=-I`pwd`
-
-    popd
-
-    # Build ONNX-TensorRT
-    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
-    export CPLUS_INCLUDE_PATH=${CPLUS_INCLUDE_PATH}:/usr/local/cuda-10.2/targets/x86_64-linux/include/
-    pushd .
-    cd 3rdparty/onnx-tensorrt/
-    mkdir -p build
-    cd build
-    cmake -DONNX_NAMESPACE=$ONNX_NAMESPACE ..
-    make -j$(nproc)
-    export LIBRARY_PATH=`pwd`:$LIBRARY_PATH
-    popd
-
-    mkdir -p /work/mxnet/lib/
-    cp 3rdparty/onnx-tensorrt/third_party/onnx/build/*.so /work/mxnet/lib/
-    cp -L 3rdparty/onnx-tensorrt/build/libnvonnxparser.so /work/mxnet/lib/
 
     cd /work/build
     cmake -DUSE_CUDA=1                            \
           -DUSE_CUDNN=1                           \
           -DUSE_OPENCV=1                          \
+          -DONNX_NAMESPACE=onnx                   \
           -DUSE_TENSORRT=1                        \
           -DUSE_OPENMP=0                          \
           -DUSE_BLAS=Open                         \
@@ -591,6 +560,10 @@ build_ubuntu_gpu_tensorrt() {
           /work/mxnet
 
     ninja
+
+    mkdir -p /work/mxnet/lib/
+    cp 3rdparty/onnx-tensorrt/third_party/onnx/*.so /work/mxnet/lib/
+    cp -L 3rdparty/onnx-tensorrt/libnvonnxparser.so* /work/mxnet/lib/
 }
 
 build_ubuntu_gpu_onednn() {
