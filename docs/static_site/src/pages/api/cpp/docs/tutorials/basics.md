@@ -3,7 +3,7 @@ layout: page_api
 title: Basics
 action: Get Started
 action_url: /get_started
-permalink: /api/cpp/docs/tutorials/basics
+permalink: /api/cpp/docs/tutorials/basics.html
 is_tutorial: true
 tag: cpp
 ---

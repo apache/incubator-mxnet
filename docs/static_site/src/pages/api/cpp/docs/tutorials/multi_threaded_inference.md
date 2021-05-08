@@ -3,7 +3,7 @@ layout: page_api
 title: Multi Threaded Inference
 action: Get Started
 action_url: /get_started
-permalink: /api/cpp/docs/tutorials/multi_threaded_inference
+permalink: /api/cpp/docs/tutorials/multi_threaded_inference.html
 is_tutorial: true
 tag: cpp
 ---
@@ -67,19 +67,16 @@ To complete this tutorial you need to:
 - Build the multi-threaded inference example
 
 ### Setup the MXNet C++ API
-To use the C++ API in MXNet, you need to build MXNet from source with C++ package. Please follow the [built from source guide](/get_started/ubuntu_setup.html), and [C++ Package documentation](/api/cpp)
-The summary of those two documents is that you need to build MXNet from source with `USE_CPP_PACKAGE` flag set to 1. For example: `make -j USE_CPP_PACKAGE=1 USE_CUDA=1 USE_CUDNN=1`.
+To use the C++ API in MXNet, you need to build MXNet from source with C++ package. Please follow the [built from source guide](/get_started/build_from_source.html), and [C++ Package documentation](/api/cpp.html)
+The summary of those two documents is that you need to build MXNet from source with `USE_CPP_PACKAGE` flag set to 1.
 This example requires a build with CUDA and CUDNN.
 
-### Build the example
-If you have built mxnet from source with make, then do the following:
+### Get the example
+If you have built mxnet from source with cmake, then do the following:
 
 ```bash
-$ cd example/multi_threaded_inference
-$ make
+$ cp build/cpp-package/example/multi_threaded_inference .
 ```
-
-If you have built mxnet from source with cmake, please uncomment the specific lines for cmake build or set the following environment variables: `ONEDNN_BUILD_DIR (default is $(MXNET_ROOT)/3rdparty/onednn/build)`, `ONEDNN_INCLUDE_DIR (default is $(MXNET_ROOT)/3rdparty/onednn/include)`, `MXNET_LIB_DIR (default is $(MXNET_ROOT)/lib)`.
 
 ### Run multi threaded inference example
 The example is tested with models such as `imagenet1k-inception-bn`, `imagenet1k-resnet-50`,
@@ -99,7 +96,7 @@ $ ./multi_threaded_inference [model_name] [is_gpu] [file_names]
 e.g.
 
 ```bash
-./multi_threaded_inference imagenet1k-inception-bn 2 1 grace_hopper.jpg dog.jpg
+./multi_threaded_inference imagenet1k-inception-bn 1 grace_hopper.jpg dog.jpg
 ```
 
 The above script spawns 2 threads, shares the same cachedop and params among two threads, and runs inference on GPU. It returns the inference results in the order in which files are provided.

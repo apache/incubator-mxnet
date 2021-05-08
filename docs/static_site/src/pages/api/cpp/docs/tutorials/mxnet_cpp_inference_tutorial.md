@@ -3,7 +3,7 @@ layout: page_api
 title: C++ API inference tutorial
 action: Get Started
 action_url: /get_started
-permalink: /api/cpp/docs/tutorials/cpp_inference
+permalink: /api/cpp/docs/tutorials/cpp_inference.html
 is_tutorial: true
 tag: cpp
 ---

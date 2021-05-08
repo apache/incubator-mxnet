@@ -21,6 +21,13 @@ docs:
   tutorial_link: /api/python/docs/tutorials
   icon: /assets/img/python_logo.svg
   tag: python
+- title: C/C++
+  guide_link: /api/cpp.html
+  api_link: /api/cpp/docs/api
+  tutorial_link: /api/cpp/docs/tutorials
+  description:
+  icon: /assets/img/cpp_logo.svg
+  tag: cpp
 ---
 <!--- Licensed to the Apache Software Foundation (ASF) under one -->
 <!--- or more contributor license agreements.  See the NOTICE file -->
@@ -74,6 +81,26 @@ docs:
 {%- endfor -%}
 <h2>Other Bindings</h2>
 <div class="row">
+{%- for doc in page.docs -%}
+  {%- if doc.tag != 'python' -%}
+  <div class="col-4">
+      <div class="docs-card">
+          <div class="docs-logo-container">
+              <img class="docs-logo-image" src="{{doc.icon | relative_url}}">
+          </div>
+          <div class="docs-action-btn">
+            <a href="{{doc.guide_link | relative_url}}"> <img src="{{'assets/img/compass.svg' | relative_url}}" class="docs-logo-docs">{{doc.title}} Guide  <span class="span-accented">›</span></a>
+          </div>
+          <div class="docs-action-btn">
+            <a href="{{doc.tutorial_link | relative_url}}"> <img src="{{'assets/img/video-tutorial.svg' | relative_url}}" class="docs-logo-docs">{{doc.title}} Tutorials  <span class="span-accented">›</span></a>
+          </div>
+          <div class="docs-action-btn">
+            <a href="{{doc.api_link | relative_url}}"> <img src="{{'assets/img/api.svg' | relative_url}}" class="docs-logo-docs">{{doc.title}} API Reference  <span class="span-accented">›</span></a>
+          </div>
+      </div>
+  </div>
+  {%- endif -%}
+{%- endfor -%}
   <div class="language-binding-banner">
     <h4>Call for Contribution</h4>
     The Clojure, Java, Julia, R, and Scala language bindings of <a href="/versions/{{site.versions[1]}}/api">MXNet v1.x</a> were removed in v2.x due to some <a href="https://github.com/apache/incubator-mxnet/issues/17676">C APIs being deprecated</a> and the bindings rely on the deprecated APIs. You can still use these language bindings in v1.x.

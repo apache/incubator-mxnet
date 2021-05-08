@@ -40,6 +40,7 @@ core_logic: {
   utils.parallel_stage('Build Docs', [
     // Optimization would be to flag these not to stash if not previewing them
     custom_steps.docs_jekyll(),
+    custom_steps.docs_c('libmxnet'),
     custom_steps.docs_python('libmxnet'),
   ])
 

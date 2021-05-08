@@ -3,7 +3,7 @@ layout: page_api
 title: Subgraph API
 action: Get Started
 action_url: /get_started
-permalink: /api/cpp/docs/tutorials/subgraph_api
+permalink: /api/cpp/docs/tutorials/subgraph_api.html
 is_tutorial: true
 tag: cpp
 ---

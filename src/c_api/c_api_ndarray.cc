@@ -149,13 +149,15 @@ int MXImperativeInvoke(AtomicSymbolCreator creator,
   API_BEGIN();
   MXImperativeInvokeImpl(creator, num_inputs, inputs, num_outputs, outputs,
                          num_params, param_keys, param_vals);
-  NDArray** out_array = *reinterpret_cast<NDArray***>(outputs);
-  ret->out_types.clear();
-  ret->out_types.reserve(*num_outputs);
-  for (int i = 0; i < *num_outputs; ++i) {
-    ret->out_types.emplace_back(out_array[i]->storage_type());
+  if (out_stypes != nullptr) {
+    NDArray** out_array = *reinterpret_cast<NDArray***>(outputs);
+    ret->out_types.clear();
+    ret->out_types.reserve(*num_outputs);
+    for (int i = 0; i < *num_outputs; ++i) {
+      ret->out_types.emplace_back(out_array[i]->storage_type());
+    }
+    *out_stypes = dmlc::BeginPtr(ret->out_types);
   }
-  *out_stypes = dmlc::BeginPtr(ret->out_types);
   API_END();
 }
 
@@ -247,14 +249,15 @@ int MXInvokeCachedOp(CachedOpHandle handle,
     }
     *outputs = dmlc::BeginPtr(ret->ret_handles);
   }
-
-  NDArray** out_array = reinterpret_cast<NDArray**>(*outputs);
-  ret->out_types.clear();
-  ret->out_types.reserve(*num_outputs);
-  for (int i = 0; i < *num_outputs; ++i) {
-    ret->out_types.emplace_back(out_array[i]->storage_type());
+  if (out_stypes != nullptr) {
+    NDArray** out_array = reinterpret_cast<NDArray**>(*outputs);
+    ret->out_types.clear();
+    ret->out_types.reserve(*num_outputs);
+    for (int i = 0; i < *num_outputs; ++i) {
+      ret->out_types.emplace_back(out_array[i]->storage_type());
+    }
+    *out_stypes = dmlc::BeginPtr(ret->out_types);
   }
-  *out_stypes = dmlc::BeginPtr(ret->out_types);
 
   API_END();
 }
@@ -398,7 +401,7 @@ int MXAutogradGetSymbol(NDArrayHandle handle, SymbolHandle *out) {
   API_END();
 }
 
-int MXCachedOpRegisterOpHook(NDArrayHandle handle,
+int MXCachedOpRegisterOpHook(CachedOpHandle handle,
                              CachedOpMonitorCallback callback,
                              bool monitor_all) {
   API_BEGIN();

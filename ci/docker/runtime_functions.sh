@@ -625,12 +625,16 @@ build_ubuntu_gpu_onednn_nocudnn() {
 build_ubuntu_gpu() {
     set -ex
     cd /work/build
+    ln -s -f /usr/local/cuda/targets/x86_64-linux/lib/stubs/libcuda.so libcuda.so.1
+    export LIBRARY_PATH=${LIBRARY_PATH}:/work/build
+    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/work/build
     CC=gcc-7 CXX=g++-7 cmake \
         -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
         -DUSE_CUDA=ON \
         -DUSE_NVML=OFF \
         -DMXNET_CUDA_ARCH="$CI_CMAKE_CUDA_ARCH" \
         -DUSE_CUDNN=ON \
+        -DUSE_CPP_PACKAGE=ON \
         -DUSE_BLAS=Open \
         -DUSE_ONEDNN=OFF \
         -DUSE_DIST_KVSTORE=ON \
@@ -876,6 +880,12 @@ unittest_centos7_gpu() {
         OMP_NUM_THREADS=$(expr $(nproc) / 4) pytest -m 'not serial' -k 'test_operator' -n 4 --durations=50 --cov-report xml:tests_gpu.xml --cov-append --verbose tests/python/gpu
     pytest -m 'serial' --durations=50 --cov-report xml:tests_gpu.xml --cov-append --verbose tests/python/gpu
     pytest --durations=50 --cov-report xml:tests_gpu.xml --cov-append --verbose tests/python/gpu/test_amp_init.py
+}
+
+integrationtest_ubuntu_cpp_package_gpu() {
+    set -ex
+    export DMLC_LOG_STACK_TRACE_DEPTH=10
+    cpp-package/tests/ci_test.sh
 }
 
 integrationtest_ubuntu_cpu_onnx() {
@@ -1159,9 +1169,11 @@ build_docs() {
     pushd docs/_build
     tar -xzf jekyll-artifacts.tgz
     python_doc_folder='html/api/python/docs'
+    api_folder='html/api'
 
     # Python has it's own landing page/site so we don't put it in /docs/api
     mkdir -p $python_doc_folder && tar -xzf python-artifacts.tgz --directory $python_doc_folder
+    mkdir -p $api_folder/cpp/docs/api && tar -xzf c-artifacts.tgz --directory $api_folder/cpp/docs/api
 
      # check if .htaccess file exists
     if [ ! -f "html/.htaccess" ]; then
@@ -1210,7 +1222,9 @@ build_docs_beta() {
     pushd docs/_build
     tar -xzf jekyll-artifacts.tgz
     python_doc_folder="html/versions/$BRANCH/api/python/docs"
+    cpp_doc_folder="html/versions/$BRANCH/api/cpp/docs"
     mkdir -p $python_doc_folder && tar -xzf python-artifacts.tgz --directory $python_doc_folder
+    mkdir -p $cpp_doc_folder && tar -xzf c-artifacts.tgz --directory $cpp_doc_folder
     GZIP=-9 tar -zcvf beta_website.tgz -C html .
     popd
 }

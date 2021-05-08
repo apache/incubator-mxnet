@@ -77,6 +77,7 @@ option(USE_JEMALLOC "Build with Jemalloc support" OFF)
 option(USE_LIBJPEG_TURBO "Use libjpeg-turbo" OFF)
 option(USE_DIST_KVSTORE "Build with DIST_KVSTORE support" OFF)
 option(USE_PLUGINS_WARPCTC "Use WARPCTC Plugins" OFF)
+option(USE_CPP_PACKAGE "Build C++ Package" OFF)
 option(USE_MXNET_LIB_NAMING "Use MXNet library naming conventions." ON)
 option(USE_GPROF "Compile with gprof (profiling) flag" OFF)
 option(USE_VTUNE "Enable use of Intel Amplifier XE (VTune)" OFF) # one could set VTUNE_ROOT for search path
@@ -294,6 +295,10 @@ if(USE_ONEDNN)
   add_definitions(-DMXNET_USE_ONEDNN=1)
   list(APPEND mxnet_LINKER_LIBS dnnl)
   set_target_properties(dnnl PROPERTIES CXX_CLANG_TIDY "")  # don't lint 3rdparty dependency
+endif()
+
+if(USE_CPP_PACKAGE)
+    add_definitions(-DMXNET_USE_CPP_PACKAGE=1)
 endif()
 
 if(USE_INTGEMM)
@@ -958,6 +963,11 @@ if(INSTALL_PYTHON_VERSIONS)
       COMMAND cp -ru ${CMAKE_CURRENT_SOURCE_DIR}/python/mxnet/* ${outdir}
       )
   endforeach()
+endif()
+
+if(USE_CPP_PACKAGE)
+  add_subdirectory(cpp-package)
+  target_compile_definitions(mxnet PUBLIC MXNET_USE_CPP_PACKAGE=1)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Distribution")

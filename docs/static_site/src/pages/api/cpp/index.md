@@ -41,8 +41,17 @@ The cpp-package directory contains the implementation of C++ API. As mentioned a
 	```
 
 3.  Install the [prerequisites](<https://mxnet.apache.org/get_started/build_from_source#prerequisites>), desired [BLAS libraries](<https://mxnet.apache.org/get_started/build_from_source#blas-library>) and optional [OpenCV, CUDA, and cuDNN](<https://mxnet.apache.org/get_started/build_from_source#optional>) for building MXNet from source.
-4.  Please refer to  [platform specific build instructions](<https://mxnet.apache.org/get_started/build_from_source#build-instructions-by-operating-system>) and available [build configurations](https://mxnet.apache.org/get_started/build_from_source#build-configurations) for more details.
-5.  For enabling the build of C++ Package, set the **USE\_CPP\_PACKAGE = 1** in the config file.
+4.  There is a configuration file for cmake, [config/*.cmake](<https://github.com/apache/incubator-mxnet/tree/master/config>) that contains all the compilation options. You can edit this file and set the appropriate options prior to running the **cmake** command.
+5.  Please refer to  [platform specific build instructions](<https://mxnet.apache.org/get_started/build_from_source#build-instructions-by-operating-system>) and available [build configurations](https://mxnet.apache.org/get_started/build_from_source#build-configurations) for more details.
+6.  For enabling the build of C++ Package, set the **-DUSE\_CPP\_PACKAGE = 1** in cmake options.
+
+### Cross-Compilation steps:
+1.  Build the C++ package for the **host** platform to generate op.h file.
+2.  Remove the following line in [CMakeLists.txt](<https://github.com/apache/incubator-mxnet/blob/master/cpp-package/CMakeLists.txt#L15>).
+    ```
+	COMMAND python OpWrapperGenerator.py $<TARGET_FILE:mxnet>
+	``` 
+3.  Re-configure cmake for cross-compilation to build the **target** C++ package.
 
 ## Usage
 

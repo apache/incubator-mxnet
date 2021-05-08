@@ -1357,7 +1357,7 @@ MXNET_DLL int MXInvokeCachedOp(CachedOpHandle handle,
 /*!
  * \brief cached op set monitor callback
  */
-MXNET_DLL int MXCachedOpRegisterOpHook(NDArrayHandle handle,
+MXNET_DLL int MXCachedOpRegisterOpHook(CachedOpHandle handle,
                                        CachedOpMonitorCallback callback,
                                        bool monitor_all);
 

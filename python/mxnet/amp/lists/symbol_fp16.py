@@ -443,6 +443,7 @@ FP16_FP32_FUNCS = [
     'slice_like',
     'softsign',
     'sort',
+    'SoftmaxOutput',
     'space_to_depth',
     'sqrt',
     'squeeze',

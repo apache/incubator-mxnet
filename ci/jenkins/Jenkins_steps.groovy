@@ -34,9 +34,9 @@ mx_cmake_lib_cython = 'build/libmxnet.so, build/3rdparty/tvm/libtvm_runtime.so, 
 mx_cmake_lib_debug = 'build/libmxnet.so, build/3rdparty/tvm/libtvm_runtime.so, build/libtvmop.so, build/tvmop.conf, build/libcustomop_lib.so, build/libcustomop_gpu_lib.so, build/libsubgraph_lib.so, build/tests/mxnet_unit_tests'
 mx_onednn_lib = 'build/libmxnet.so, build/3rdparty/tvm/libtvm_runtime.so, build/libtvmop.so, build/tvmop.conf, build/libcustomop_lib.so, build/libcustomop_gpu_lib.so, build/libsubgraph_lib.so, example/extensions/lib_external_ops/build/libexternal_lib.so'
 mx_tensorrt_lib = 'build/libmxnet.so, build/3rdparty/tvm/libtvm_runtime.so, build/libtvmop.so, build/tvmop.conf, lib/libnvonnxparser_runtime.so.0, lib/libnvonnxparser.so.0, lib/libonnx_proto.so, lib/libonnx.so'
-mx_lib_cpp_examples = 'build/libmxnet.so, build/3rdparty/tvm/libtvm_runtime.so, build/libtvmop.so, build/tvmop.conf, build/libcustomop_lib.so, build/libcustomop_gpu_lib.so, build/libsubgraph_lib.so, example/extensions/lib_external_ops/build/libexternal_lib.so, python/mxnet/_cy3/*.so, python/mxnet/_ffi/_cy3/*.so'
+mx_lib_cpp_examples = 'build/libmxnet.so, build/3rdparty/tvm/libtvm_runtime.so, build/libtvmop.so, build/tvmop.conf, build/libcustomop_lib.so, build/libcustomop_gpu_lib.so, build/libsubgraph_lib.so, example/extensions/lib_external_ops/build/libexternal_lib.so, build/cpp-package/example/*, python/mxnet/_cy3/*.so, python/mxnet/_ffi/_cy3/*.so'
 mx_lib_cpp_examples_no_tvm_op = 'build/libmxnet.so, build/libcustomop_lib.so, build/libcustomop_gpu_lib.so, build/libsubgraph_lib.so, python/mxnet/_cy3/*.so, python/mxnet/_ffi/_cy3/*.so'
-mx_lib_cpp_examples_cpu = 'build/libmxnet.so, build/3rdparty/tvm/libtvm_runtime.so, build/libtvmop.so, build/tvmop.conf'
+mx_lib_cpp_examples_cpu = 'build/libmxnet.so, build/3rdparty/tvm/libtvm_runtime.so, build/libtvmop.so, build/tvmop.conf, build/cpp-package/example/*'
 mx_cd_lib = 'lib/libmxnet.so, licenses/*, lib/libgfortran.so.*, lib/libopenblas.so.0, include/onednn/oneapi/dnnl/dnnl_version.h, include/onednn/oneapi/dnnl/dnnl_config.h'
 
 
@@ -85,7 +85,7 @@ def compile_unix_cpu_openblas(lib_name) {
           timeout(time: max_time, unit: 'MINUTES') {
             utils.init_git()
             utils.docker_run('ubuntu_cpu', 'build_ubuntu_cpu_openblas', false)
-            utils.pack_lib(lib_name, mx_lib_cython, true)
+            utils.pack_lib(lib_name, mx_lib_cpp_examples, true)
           }
         }
       }
@@ -846,6 +846,20 @@ def test_unix_distributed_kvstore_gpu(lib_name) {
     }]
 }
 
+def test_unix_cpp_package_gpu(lib_name) {
+    return ['cpp-package GPU Makefile': {
+      node(NODE_LINUX_GPU_G4) {
+        ws('workspace/it-cpp-package-gpu') {
+          timeout(time: max_time, unit: 'MINUTES') {
+            utils.unpack_and_init(lib_name, mx_lib_cpp_examples)
+            utils.docker_run('ubuntu_gpu_cu111', 'integrationtest_ubuntu_cpp_package_gpu', true)
+            utils.publish_test_coverage()
+          }
+        }
+      }
+    }]
+}
+
 def test_centos7_python3_cpu(lib_name) {
     return ['Python3: CentOS 7 CPU': {
       node(NODE_LINUX_CPU) {
@@ -1048,6 +1062,23 @@ def docs_python(lib_name) {
     }]
 }
 
+// Call this function from Jenkins to generate just the C and C++ API microsite artifacts.
+def docs_c(lib_name) {
+    return ['C Docs': {
+      node(NODE_LINUX_CPU) {
+        ws('workspace/docs') {
+          timeout(time: max_time, unit: 'MINUTES') {
+            utils.unpack_and_init(lib_name, mx_lib, false)
+            utils.docker_run('ubuntu_cpu', 'build_c_docs', false)
+            if (should_pack_website()) {
+              utils.pack_lib('c-artifacts', 'docs/_build/c-artifacts.tgz', false)
+            }
+          }
+        }
+      }
+    }]
+}
+
 
 // Call this function from Jenkins to generate just the main website artifacts.
 def docs_jekyll() {
@@ -1078,6 +1109,7 @@ def docs_prepare() {
             utils.init_git()
 
             unstash 'jekyll-artifacts'
+            unstash 'c-artifacts'
             unstash 'python-artifacts'
 
             utils.docker_run('ubuntu_cpu_jekyll', 'build_docs', false)
@@ -1104,6 +1136,7 @@ def docs_full_website() {
             utils.init_git()
 
             unstash 'jekyll-artifacts'
+            unstash 'c-artifacts'
             unstash 'python-artifacts'
 
             utils.docker_run('ubuntu_cpu_jekyll', 'build_docs', false)
@@ -1126,6 +1159,7 @@ def docs_prepare_beta() {
             utils.init_git()
 
             unstash 'jekyll-artifacts'
+            unstash 'c-artifacts'
             unstash 'python-artifacts'
 
             utils.docker_run('ubuntu_cpu_jekyll', 'build_docs_beta', false)
