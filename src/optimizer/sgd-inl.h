@@ -82,11 +82,11 @@ void sgd_mom_update(RunContext ctx, TBlob weight, const TBlob grad, TBlob mom,
   Tensor<xpu, 2> grad2d = grad.FlatTo2D<xpu, real_t>(s);
   if (param.clip_gradient > 0.0f) {
     mom2d = param.momentum*mom2d -
-            lr*(F<sgd_clip>(param.rescale_grad * grad2d, param.clip_gradient) + wd*weight2d);
+            (F<sgd_clip>(param.rescale_grad * grad2d, param.clip_gradient) + wd*weight2d);
   } else {
-    mom2d = param.momentum*mom2d - lr*(param.rescale_grad*grad2d + wd*weight2d);
+    mom2d = param.momentum*mom2d - (param.rescale_grad*grad2d + wd*weight2d);
   }
-  weight2d += mom2d;
+  weight2d += lr * mom2d;
 }
 
 template<typename xpu>

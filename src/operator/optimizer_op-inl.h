@@ -238,8 +238,8 @@ struct MultiSGDKernel {
         rescale_grad += param.wds[index] * w;
         if (has_momentum) {
           param.mom[index][i] *= param.momentum;
-          param.mom[index][i] -= param.lrs[index] * rescale_grad;
-          w = w + param.mom[index][i];
+          param.mom[index][i] -= rescale_grad;
+          w += param.lrs[index] * param.mom[index][i];
         } else {
           w -= param.lrs[index] * rescale_grad;
         }
@@ -600,8 +600,8 @@ struct SGDMomKernel {
     }
     rescale_grad += param_wd * weight_data[i];
     mom_data[i] *= param_momentum;
-    mom_data[i] -= param_lr * rescale_grad;
-    KERNEL_ASSIGN(out_data[i], req, weight_data[i] + mom_data[i]);
+    mom_data[i] -= rescale_grad;
+    KERNEL_ASSIGN(out_data[i], req, weight_data[i] + param_lr * mom_data[i]);
   }
 };
 
@@ -692,9 +692,9 @@ struct MP_SGDMomKernel {
     }
     grad_rescaled += param_wd * w;
     mom *= param_momentum;
-    mom -= param_lr * grad_rescaled;
+    mom -= grad_rescaled;
     mom_data[i] = mom;
-    w = w + mom;
+    w += param_lr * mom;
     weight32[i] = w;
     KERNEL_ASSIGN(out_data[i], req, w);
   }
@@ -740,8 +740,8 @@ struct SGDMomDnsRspDnsKernel<req, cpu> {
       }
       grad_rescaled += wd * weight_data[data_i];
       mom_data[data_i] *= momentum;
-      mom_data[data_i] -= lr * grad_rescaled;
-      KERNEL_ASSIGN(out_data[data_i], req, weight_data[data_i] + mom_data[data_i]);
+      mom_data[data_i] -= grad_rescaled;
+      KERNEL_ASSIGN(out_data[data_i], req, weight_data[data_i] + lr * mom_data[data_i]);
     }
   }
 };
@@ -763,8 +763,8 @@ struct SGDMomDnsRspDnsKernel<req, gpu> {
     }
     grad_rescaled += wd * weight_data[data_i];
     mom_data[data_i] *= momentum;
-    mom_data[data_i] -= lr * grad_rescaled;
-    KERNEL_ASSIGN(out_data[data_i], req, weight_data[data_i] + mom_data[data_i]);
+    mom_data[data_i] -= grad_rescaled;
+    KERNEL_ASSIGN(out_data[data_i], req, weight_data[data_i] + lr * mom_data[data_i]);
   }
 };
 
@@ -1039,9 +1039,8 @@ struct NAGMomKernel {
     }
     grad_rescaled += param_wd * weight_data[i];
     mom_data[i] *= param_momentum;
-    mom_data[i] -= param_lr * grad_rescaled;
-    KERNEL_ASSIGN(out_data[i], req, weight_data[i] + (param_momentum * mom_data[i])
-                   - (param_lr * grad_rescaled));
+    mom_data[i] -= grad_rescaled;
+    KERNEL_ASSIGN(out_data[i], req, weight_data[i]+param_lr*(param_momentum*mom_data[i]-grad_rescaled));
   }
 };
 
@@ -1084,8 +1083,8 @@ struct MP_NAGMomKernel {
     }
     grad_rescaled += param_wd * w;
     mom_data[i] *= param_momentum;
-    mom_data[i] -= param_lr * grad_rescaled;
-    w += (param_momentum * mom_data[i]) - (param_lr * grad_rescaled);
+    mom_data[i] -= grad_rescaled;
+    w += param_lr * (param_momentum * mom_data[i] - grad_rescaled);
     weight32[i] = w;
     KERNEL_ASSIGN(out_data[i], req, w);
   }

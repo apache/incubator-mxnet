@@ -146,12 +146,12 @@ class SGD(Optimizer):
             mom = state
             if mom is not None:
                 mom[:] *= self.momentum
-                mom[:] -= lr * grad
+                mom[:] -= grad
             else:
-                mom = -lr * grad
+                mom = -grad
 
             # update weight
-            weight[:] += mom
+            weight[:] += lr * mom
 
     def fused_step(self, indices, weights, grads, states):
         """Perform a fused optimization step using gradients and states.

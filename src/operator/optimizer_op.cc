@@ -127,8 +127,8 @@ struct SGDMomStdDnsRspDnsKernel<req, cpu> {
       }
       grad_rescaled += wd * weight_data[data_i];
       mom_data[data_i] *= momentum;
-      mom_data[data_i] -= lr * grad_rescaled;
-      KERNEL_ASSIGN(out_data[data_i], req, weight_data[data_i] + mom_data[data_i]);
+      mom_data[data_i] -= grad_rescaled;
+      KERNEL_ASSIGN(out_data[data_i], req, weight_data[data_i] + lr * mom_data[data_i]);
     }
   }
 };

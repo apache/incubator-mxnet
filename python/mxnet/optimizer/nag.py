@@ -100,13 +100,13 @@ class NAG(Optimizer):
             mom = state
             if mom is not None:
                 mom[:] *= self.momentum
-                mom[:] -= lr * grad
-                d = self.momentum * mom - lr * grad
+                mom[:] -= grad
+                d = self.momentum * mom - grad
             else:
-                d = -lr * grad
+                d = -grad
 
             # update weight
-            weight[:] += d
+            weight[:] += lr * d
 
     def fused_step(self, indices, weights, grads, states):
         """Perform a fused optimization step using gradients and states.

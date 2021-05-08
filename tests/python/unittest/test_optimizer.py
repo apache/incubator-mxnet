@@ -152,8 +152,8 @@ class PySparseSGD(mx.optimizer.Optimizer):
                         grad[row] = mx.nd.clip(grad[row], -self.clip_gradient, self.clip_gradient)
                     grad[row] += wd * weight[row]
                     mom[row] *= self.momentum
-                    mom[row] -= lr * grad[row]
-                    weight[row] += mom[row]
+                    mom[row] -= grad[row]
+                    weight[row] += lr * mom[row]
 
 
 @xfail_when_nonstandard_decimal_separator
