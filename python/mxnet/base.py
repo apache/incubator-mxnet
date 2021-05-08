@@ -51,7 +51,11 @@ error_types = {}
 
 # this function is needed for python3
 # to convert ctypes.char_p .value back to python str
-py_str = lambda x: x.decode('utf-8')
+if sys.platform == "win32":
+    encoding = 'cp' + str(ctypes.cdll.kernel32.GetACP())
+    py_str = lambda x: x.decode(encoding)
+else:
+    py_str = lambda x: x.decode('utf-8')
 
 
 def data_dir_default():
