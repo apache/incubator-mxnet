@@ -22,7 +22,7 @@ set -eo pipefail
 # This script builds the libraries of mxnet.
 cmake_config=${CURDIR}/config/distribution/${PLATFORM}_${VARIANT}.cmake
 if [[ ! -f $cmake_config ]]; then
-    >&2 echo "Couldn't find cmake config $make_config for the current settings."
+    >&2 echo "Couldn't find cmake config $cmake_config for the current settings."
     exit 1
 fi
 
