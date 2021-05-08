@@ -29,7 +29,12 @@ export NVCCFLAGS = -O3 --use_fast_math -ccbin $(CXX) $(MSHADOW_NVCCFLAGS)
 BIN = basic defop
 OBJ =
 CUOBJ =
+ifeq ($(USE_CUDA), 1)
+CUBIN = basic_stream
+else
 CUBIN =
+endif
+
 .PHONY: clean all
 
 all: $(BIN) $(OBJ) $(CUBIN) $(CUOBJ)
