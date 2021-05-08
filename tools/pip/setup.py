@@ -33,6 +33,9 @@ elif platform.system() == 'Darwin':
     sys.argv.append('--python-tag')
     sys.argv.append('py3')
     sys.argv.append('--plat-name=macosx_10_13_x86_64')
+elif platform.system() == 'Windows':
+    sys.argv.append('--universal')
+    sys.argv.append('--plat-name=win_amd64')
 
 # We can not import `mxnet.info.py` in setup.py directly since mxnet/__init__.py
 # Will be invoked which introduces dependences
@@ -164,6 +167,24 @@ if platform.system() == 'Linux':
     if os.path.exists(os.path.join(libdir, 'libopenblas.so.0')):
         shutil.copy(os.path.join(libdir, 'libopenblas.so.0'), mxdir)
         package_data['mxnet'].append('mxnet/libopenblas.so.0')
+        
+if platform.system() == 'Windows':
+    package_data['mxnet'].append(os.path.abspath(os.path.join('mxnet', os.path.basename(LIB_PATH[0]))))
+    package_data['mxnet'].append(os.path.abspath(os.path.join('mxnet', 'mxnet_*.dll')))
+    package_data['mxnet'].append(os.path.abspath(os.path.join('mxnet', 'libmxnet.lib')))
+    for root, dirs, files in os.walk('win_third/openblas'):
+        for file in files:
+            shutil.copy(os.path.join(root, file), os.path.join(CURRENT_DIR, 'mxnet'))
+            package_data['mxnet'].append(os.path.abspath(os.path.join('mxnet', file)))
+    if variant != 'CPU':
+        variant_cudnn = variant
+        if variant.endswith("MKL"):
+            variant_cudnn = variant[:-3]
+        if variant_cudnn != "":
+            for root, dirs, files in os.walk('win_third/cudnn/{0}'.format(variant_cudnn)):
+                for file in files:
+                    shutil.copy(os.path.join(root, file), os.path.join(CURRENT_DIR, 'mxnet'))
+                    package_data['mxnet'].append(os.path.abspath(os.path.join('mxnet', file)))
 
 # Copy licenses and notice
 for f in os.listdir('mxnet/licenses'):
