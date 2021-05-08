@@ -46,7 +46,7 @@ static const std::vector<std::pair<std::string, std::string>> test_unary_operato
 
 static const std::vector<std::pair<std::string, std::string>> test_binary_operators = {
   { "elemwise_add", "_backward_add" },
-  { "elemwise_mul", "_backward_mul" }
+  { "elemwise_mul", "" }
 };
 
 template<typename TT>

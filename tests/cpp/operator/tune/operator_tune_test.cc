@@ -106,7 +106,7 @@ static float EvaluateTune(const bool verbose = true) {
       {"sigmoid",      ""},
       {"sqrt",         ""},
       {"elemwise_add", "_backward_add"},
-      {"elemwise_mul", "_backward_mul"},
+      {"elemwise_mul", ""},
       {"elemwise_div", "_backward_div"}
     };
   } else {

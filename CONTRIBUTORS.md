@@ -286,6 +286,7 @@ List of Contributors
 * [Jonathan Tan](https://github.com/jonatan1626)
 * [Oliver Kowalke](https://github.com/olk)
 * [Connor Goggins](https://github.com/connorgoggins)
+* [Deng, Wenqi](https://github.com/tobecontinued)
 * [Wei Chu](https://github.com/waytrue17)
 * [Joe Evans](https://github.com/josephevans)
 * [Nikolay Ulmasov](https://github.com/r3stl355)

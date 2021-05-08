@@ -25,9 +25,12 @@
 #include <utility>
 #include <string>
 #include <map>
+#include <queue>
+#include <set>
 #include "./test_op.h"
 #include "profiler/vtune.h"
 #include "../../../src/imperative/imperative_utils.h"
+#include "../../../src/operator/operator_common.h"
 
 namespace mxnet {
 namespace test {
@@ -129,6 +132,11 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
   nnvm::ObjectPtr MakeNode() const {
     nnvm::ObjectPtr node = nnvm::Node::Create();
     node->attrs = attrs_;
+    for (uint32_t i = 0; i < node->num_inputs(); ++i) {
+      auto input = nnvm::Node::Create();
+      input->attrs.name = "input_" + std::to_string(i);
+      node->inputs.emplace_back(nnvm::NodeEntry(input, 0, 0));
+    }
     return node;
   }
 
@@ -142,20 +150,184 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
     nnvm::FGradient grad_fun = gradient.get(op_, nullptr);
     if (grad_fun) {
       auto n = MakeNode();
+      uint32_t index = -1;
+      std::map<std::string, uint32_t> name_to_indexs;
+      std::vector<nnvm::NodeEntry> index_to_nodes;
+
       std::vector<nnvm::NodeEntry> out_grads(n->num_outputs());
-      std::vector<nnvm::NodeEntry> entries = grad_fun(n, out_grads);
+      for (auto i = 0; i < out_grads.size(); ++i) {
+        out_grads[i].node =  nnvm::Node::Create();
+        out_grads[i].node->attrs.name =  "out_grad_" + std::to_string(i);
+        name_to_indexs[out_grads[i].node->attrs.name] = ++index;
+        out_grads[i].index = index;
+        index_to_nodes.push_back(out_grads[i]);
+        index_to_nodes[index].index = index;
+        bwd_inputs_.emplace_back(CreateRandArray(output_shapes_[i], ctx_.run_ctx,
+                output_types_[i]));
+      }
+      for (auto i = 0; i < n->num_inputs(); ++i) {
+        name_to_indexs[n->inputs[i].node->attrs.name] = ++index;
+        n->inputs[i].index = index;
+        index_to_nodes.push_back(n->inputs[i]);
+        index_to_nodes[index].index = index;
+        bwd_outputs_.emplace_back(CreateZeroArray(input_shapes_[i], ctx_.run_ctx,
+                input_types_[i]));
+      }
+
+      std::vector< nnvm::NodeEntry> entries = grad_fun(n, out_grads);
       CHECK_GE(entries.size(), 1U);
-      res.reserve(entries.size());
-      for (const nnvm::NodeEntry& node_entry : entries) {
-        CHECK_NOTNULL(node_entry.node.get());
-        CHECK_NOTNULL(node_entry.node->op());
-        CHECK_GT(node_entry.node->op()->name.size(), 0);
+
+      std::map<uint32_t, uint32_t > bwd_output_nodes;
+      std::queue<nnvm::NodeEntry*> queue;
+      std::unordered_set<std::string> visited;
+      for (auto i = 0; i < entries.size(); ++i) {
+        nnvm::NodeEntry& node_entry = entries[i];
+        queue.push(&node_entry);
+        visited.insert(node_entry.node->attrs.name);
+        name_to_indexs[node_entry.node->attrs.name] = ++index;
+        node_entry.index = index;
+        index_to_nodes.push_back(node_entry);
+        index_to_nodes[index].index = index;
+        bwd_output_nodes[node_entry.index] = i;
+      }
+      while (!queue.empty()) {
+        auto* node_entry = queue.front();
+        queue.pop();
+
+        CHECK_NOTNULL(node_entry);
+        CHECK_NOTNULL(node_entry->node.get());
+        CHECK_NOTNULL(node_entry->node->op());
+        CHECK_GT(node_entry->node->op()->name.size(), 0);
+
+        auto it = name_to_indexs.find(node_entry->node->attrs.name);
+        if (it == name_to_indexs.end()) {
+          name_to_indexs[node_entry->node->attrs.name] = ++index;
+          index_to_nodes.push_back(*node_entry);
+        } else  {
+          node_entry->index = it->second;
+        }
+
+        for (nnvm::NodeEntry& input : node_entry->node->inputs) {
+            if (visited.find(input.node->attrs.name) != visited.end()) {
+              continue;
+            } else {
+              input.index = name_to_indexs[input.node->attrs.name];
+            }
+            visited.insert(input.node->attrs.name);
+            queue.push(&input);
+        }
+      }
+
+      std::map<uint32_t, std::set<uint32_t>> node_outputs;
+      std::queue<uint32_t > index_queue;
+      std::unordered_set<uint32_t> visited_indexes;
+      for (auto i = 0; i < entries.size(); ++i) {
+        nnvm::NodeEntry& node_entry = entries[i];
+        visited_indexes.insert(node_entry.index);
+        index_queue.push(node_entry.index);
+      }
+      while (!index_queue.empty()) {
+        auto node_index = index_queue.front();
+        index_queue.pop();
+        const auto& node_entry = index_to_nodes.at(node_index);
+
+        for (nnvm::NodeEntry& input : node_entry.node->inputs) {
+          node_outputs[input.index].insert(node_entry.index);
+          if (visited_indexes.find(input.index) != visited_indexes.end()) {
+            continue;
+          }
+
+          visited_indexes.insert(input.index);
+          index_queue.push(input.index);
+        }
+      }
+
+      visited_indexes.clear();
+      std::map<uint32_t, mxnet::TShape> node_shapes;
+      std::map<uint32_t, int> node_types;
+      for (auto i = 0; i < n->num_inputs(); ++i) {
+        index_queue.push(n->inputs[i].index);
+        visited_indexes.insert(n->inputs[i].index);
+        node_shapes[n->inputs[i].index] = input_shapes_[i];
+        node_types[n->inputs[i].index] = input_types_[i];
+      }
+      for (auto i = 0; i < out_grads.size(); ++i) {
+        index_queue.push(out_grads[i].index);
+        visited_indexes.insert(out_grads[i].index);
+        node_shapes[out_grads[i].index] = output_shapes_[i];
+        node_types[out_grads[i].index] = output_types_[i];
+      }
+      bwd_output_executors_.resize(entries.size());
+      std::map<uint32_t, CoreOpExecutor*> node_executors;
+      // the order of nodes getting from button-to-up DFS can't be used
+      // for executing CoreOpExecutors.
+      while (!index_queue.empty()) {
+        auto node_index = index_queue.front();
+        index_queue.pop();
+        const auto& node_entry = index_to_nodes.at(node_index);
+
+        for (auto output_index : node_outputs[node_entry.index]) {
+          if (visited_indexes.find(output_index) != visited_indexes.end()) {
+            continue;
+          }
+          visited_indexes.insert(output_index);
+          index_queue.push(output_index);
+        }
+
+        std::vector<mxnet::TShape> input_shapes;
+        input_shapes.reserve(node_entry.node->num_inputs());
+        for (nnvm::NodeEntry& input : node_entry.node->inputs) {
+          CHECK(node_shapes.find(input.index) != node_shapes.end());
+          input_shapes.push_back(node_shapes[input.index]);
+        }
+
+        if (node_entry.node->is_variable() || node_entry.node->op()->name.empty()) {
+          continue;
+        }
+
         if (verbose_) {
           std::cout << node_entry.node->op()->name << std::endl;
         }
+
+        std::vector<mxnet::TShape> output_shapes;
+        output_shapes.resize(node_entry.node->num_outputs());
+        static auto& finfer_shape = Op::GetAttr<mxnet::FInferShape>("FInferShape");
+        if (finfer_shape.count(node_entry.node->op())) {
+          mxnet::FInferShape call_infer_shapes = finfer_shape[node_entry.node->op()];
+          call_infer_shapes(node_entry.node->attrs, &input_shapes, &output_shapes);
+          // how to handle #output >  1?
+          CHECK_EQ(output_shapes.size(), 1U);
+          node_shapes[node_entry.index] = output_shapes[0];
+        } else {
+          CHECK(false) << "can't find finfer_shape for op " << node_entry.node->op()->name;
+        }
+
         std::shared_ptr<CoreOpExecutor> pOp = std::make_shared<CoreOpExecutor>(
-          ctx().run_ctx.ctx.dev_type == Context::kGPU, ShapesOf(outputs()));
-        res.push_back({ pOp, node_entry.node->op()->name });
+                ctx().run_ctx.ctx.dev_type == Context::kGPU, input_shapes);
+
+        node_executors[node_entry.index] = pOp.get();
+        bwd_input_map_[pOp.get()];
+        res.push_back({pOp, node_entry.node->op()->name});
+        auto index_iter = bwd_output_nodes.find(node_entry.index);
+        if (index_iter != bwd_output_nodes.end()) {
+          bwd_output_executors_[index_iter->second] = pOp.get();
+        }
+
+        for (const auto& input : node_entry.node->inputs) {
+          ExecutorInputSources executor_input_source;
+          if (input.index < bwd_inputs_.size())  {
+            executor_input_source.type  = ExecutorInputSources::GRAD;
+            executor_input_source.index = input.index;
+          } else if (input.index < bwd_inputs_.size() + inputs_.size()) {
+            executor_input_source.type  = ExecutorInputSources::INPUT;
+            executor_input_source.index = input.index - bwd_inputs_.size();
+          } else {
+            executor_input_source.type  = ExecutorInputSources::EXECUTOR;
+            executor_input_source.index = 0;
+            executor_input_source.executor = node_executors[input.index];
+          }
+          bwd_input_map_[pOp.get()].push_back(executor_input_source);
+        }
       }
     }
     return res;
@@ -353,7 +525,7 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
 
       std::string op_name, bwd_op_name;
       kwargs_t args = ArgsSansOpName(in_args, &op_name, &bwd_op_name);
-      CHECK(op_name.empty() == false);
+      CHECK(!op_name.empty());
 
       CHECK(!backward_for_op || bwd_op_name.empty())
         << "Backward op should not be supplied another backward operator";
@@ -366,7 +538,6 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
       CHECK_NOTNULL(op_);
 
       std::map<int, const NDArray *> index2array;
-      nnvm::ObjectPtr bwd_node_ptr;
       if (backward_for_op) {
         bwd_node_ptr = backward_for_op->CalcBackwardPass(&index2array);
       }
@@ -463,6 +634,7 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
           }
         }
       }
+      input_types_ = input_types;
 
       // Output arrays
       if (outputs_.empty()) {
@@ -511,7 +683,9 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
                                                       : NDArray()));
           outputs_p.emplace_back(&*outputs_.rbegin());
         }
+        output_shapes_ = std::move(output_shapes);
       }
+      output_types_ = std::move(output_types);
 
       for (size_t i = 0; i < static_cast<size_t>(num_inputs); ++i) {
         CHECK_LT(i, static_cast<int>(input_shapes.size()));
@@ -574,7 +748,6 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
         if (!no_backward) {
           CHECK_GE(bwd.size(), 1U)
             << "Can't automatically determine backward op name. Please specify";
-
           for (std::pair<std::shared_ptr<CoreOpExecutor>, std::string> &bw_item : bwd) {
             bw_item.first->set_verbose(verbose_);
             backward_.emplace_back(bw_item.first);
@@ -671,7 +844,27 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
     if (!backward_.empty()) {
       // Avoid locked ref count here
       for (std::shared_ptr<CoreOpExecutor> &p : backward_) {
+        if (bwd_input_map_.find(p.get()) !=  bwd_input_map_.end()) {
+          p->inputs().clear();
+          for (const auto &bwd_input_source : bwd_input_map_[p.get()]) {
+            if (bwd_input_source.type == ExecutorInputSources::Type::EXECUTOR) {
+              p->inputs().push_back(bwd_input_source.executor->outputs()[bwd_input_source.index]);
+            } else if (bwd_input_source.type == ExecutorInputSources::Type::GRAD) {
+              p->inputs().push_back(bwd_inputs_[bwd_input_source.index]);
+            } else {
+              p->inputs().push_back(inputs_[bwd_input_source.index]);
+            }
+          }
+        }
         p->Execute();
+      }
+      if (!bwd_output_executors_.empty()) {
+        bwd_outputs().clear();
+        for (auto& p : bwd_output_executors_) {
+          for (auto& output : p->outputs()) {
+            bwd_outputs_.push_back(output);
+          }
+        }
       }
       return true;
     }
@@ -733,13 +926,11 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
    * \return reference to NDArray vector of backward inputs
    */
   std::vector<NDArray>& bwd_inputs() {
-    CHECK_EQ(backward_.size(), 1U);
-    return backward_[0]->inputs();
+    return bwd_inputs_.empty() ? backward_[0]->inputs() : bwd_inputs_;
   }
 
   const std::vector<NDArray>& bwd_inputs() const {
-    CHECK_EQ(backward_.size(), 1U);
-    return backward_[0]->inputs();
+    return bwd_inputs_.empty() ? backward_[0]->inputs() : bwd_inputs_;
   }
 
   /*!
@@ -747,13 +938,11 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
    * \return reference to NDArray vector of backward outputs
    */
   std::vector<NDArray>& bwd_outputs() {
-    CHECK_EQ(backward_.size(), 1U);
-    return backward_[0]->outputs();
+    return bwd_outputs_.empty() ? backward_[0]->outputs() : bwd_outputs_;
   }
 
   const std::vector<NDArray>& bwd_outputs() const {
-    CHECK_EQ(backward_.size(), 1U);
-    return backward_[0]->outputs();
+    return bwd_outputs_.empty() ? backward_[0]->outputs() : bwd_outputs_;
   }
 
   void set_verbose(bool verbose) {
@@ -788,7 +977,23 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
   /*!
    * \brief Input data shape
    */
+
   mxnet::ShapeVector input_shapes_;
+  /*!
+   * \brief Input data type
+   */
+  std::vector<int> input_types_;
+
+  /*!
+   * \brief Output data shape
+   */
+  mxnet::ShapeVector output_shapes_;
+
+  /*!
+   * \brief Output data type
+   */
+  std::vector<int> output_types_;
+
   /*
    * \brief Pointer to the operator object
    */
@@ -798,9 +1003,10 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
    */
   nnvm::NodeAttrs attrs_;
   /*!
-   * \brief Input and output NDArray vectors
+   * \brief Input, output, bwd input and bwd output NDArray vectors
    */
-  std::vector<NDArray> inputs_, outputs_;
+  std::vector<NDArray> inputs_, outputs_, bwd_inputs_, bwd_outputs_;
+
   /*!
    * \brief Vectors of the TBlob objects associated with the NDArrays in inputs_ and outputs_
    */
@@ -834,6 +1040,27 @@ class CoreOpExecutor : public test::op::OperatorDataInitializer<DType>
    * \brief Backward executors (if any)
    */
   std::vector<std::shared_ptr<CoreOpExecutor>> backward_;
+
+  /*!
+   * \brief The backwards which generated bwd output
+   */
+  std::vector<CoreOpExecutor*> bwd_output_executors_;
+
+  struct ExecutorInputSources {
+    enum Type {
+      INPUT,
+      GRAD,
+      EXECUTOR
+    };
+    Type type;
+    uint32_t index;
+    // used for EXECUTOR
+    CoreOpExecutor* executor = nullptr;
+  };
+  /*!
+   * \brief The sources of input of backend CoreOpExecutor
+   */
+  std::map<CoreOpExecutor*, std::vector<ExecutorInputSources>> bwd_input_map_;
 };
 
 class CoreOpProp {

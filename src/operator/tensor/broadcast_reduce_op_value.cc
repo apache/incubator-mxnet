@@ -130,6 +130,58 @@ NNVM_REGISTER_OP(_broadcast_backward)
     return std::vector<ResourceRequest>{ResourceRequest::kTempSpace};
   });
 
+// if the rhs can broadcast to lhs, use sum to reduce lhs to shape of rhs
+NNVM_REGISTER_OP(_reduce_sum_brodcasted)
+.set_num_inputs(2)
+.set_num_outputs(1)
+.set_attr<nnvm::FInferType>("FInferType", ElemwiseType<2, 1>)
+.set_attr<FResourceRequest>("FResourceRequest",
+  [](const NodeAttrs& attrs) {
+    return std::vector<ResourceRequest>{ResourceRequest::kTempSpace};
+  })
+.set_attr<mxnet::FInferShape>("FInferShape", [](const nnvm::NodeAttrs& attrs,
+        mxnet::ShapeVector *in_attrs, mxnet::ShapeVector *out_attrs) {
+  CHECK_EQ(in_attrs->size(), 2U);
+  CHECK_EQ(out_attrs->size(), 1U);
+  mxnet::TShape& lhs_shape = (*in_attrs)[0];
+  mxnet::TShape& rhs_shape = (*in_attrs)[1];
+
+  if (!mxnet::ndim_is_known(lhs_shape) || !mxnet::ndim_is_known(rhs_shape)) {
+    return false;
+  }
+
+  // the lhs and rhs are comp
+  CHECK_EQ(lhs_shape.ndim(), rhs_shape.ndim())
+    << "Operand of shape " << lhs_shape << " cannot be reduced to " << rhs_shape;
+
+  for (int i = 0; i < lhs_shape.ndim(); ++i) {
+    if (rhs_shape[i] != -1) {
+      CHECK(lhs_shape[i] == rhs_shape[i] || rhs_shape[i] == 1)
+        << "Array cannot be reduced from " << lhs_shape << " to " << rhs_shape;
+    }
+  }
+  auto oshape = mxnet::TShape(rhs_shape);
+
+  SHAPE_ASSIGN_CHECK(*out_attrs, 0, oshape);
+  return true;
+  })
+.set_attr<FCompute>("FCompute<cpu>", [](const nnvm::NodeAttrs& attrs, const OpContext& ctx,
+  const std::vector<TBlob>& inputs, const std::vector<OpReqType>& req,
+  const std::vector<TBlob>& outputs) {
+    ReduceAxesComputeImpl<cpu, mshadow::red::sum, false, false,
+      op::mshadow_op::identity>(ctx, inputs, req, outputs, inputs[1].shape_);
+  })
+.set_attr<nnvm::FGradient>("FGradient", NonlossGradFGradient{
+  [](const nnvm::ObjectPtr& n, const std::vector<nnvm::NodeEntry>& ograds) {
+    auto head_grad = ograds[0];
+    std::vector<nnvm::NodeEntry> ret;
+    ret.emplace_back(MakeNode("broadcast_like", n->attrs.name + "_lhs_backward",
+                              {head_grad, n->inputs[0]}, nullptr, &n));
+    ret.emplace_back(MakeNode("zeros_like", n->attrs.name + "_rhs_backward",
+                          {n->inputs[1]}, nullptr, &n));
+    return ret;
+  }});
+
 NNVM_REGISTER_OP(broadcast_like)
 .add_alias("_npx_broadcast_like")
 .set_num_inputs(2)
@@ -148,25 +200,23 @@ NNVM_REGISTER_OP(broadcast_like)
   (*in_attrs)[0] = checked_in_attrs[0];
   return ret;
 })
-.set_attr<nnvm::FGradient>("FGradient",
-  [](const nnvm::ObjectPtr& n,
-    const std::vector<nnvm::NodeEntry>& ograds) {
-      if (CheckGradAllZero(ograds))
-        return MakeZeroGradNodes(n, ograds);
-      std::vector<nnvm::NodeEntry> lhs = MakeNonlossGradNode("_broadcast_backward", n, ograds, {},
-            {{"keepdims", "true"}});
-      lhs.emplace_back(MakeNode("zeros_like", n->attrs.name + "_rhs_backward",
+.set_attr<nnvm::FGradient>("FGradient", NonlossGradFGradient{
+  [](const nnvm::ObjectPtr& n, const std::vector<nnvm::NodeEntry>& ograds) {
+      std::vector<nnvm::NodeEntry> ret;
+      ret.emplace_back(MakeNode("_reduce_sum_brodcasted", n->attrs.name + "_lhs_backward",
+              {ograds[0], n->inputs[0]}, nullptr, &n));
+      ret.emplace_back(MakeNode("zeros_like", n->attrs.name + "_rhs_backward",
                        {n->inputs[1]}, nullptr, &n));
-      return lhs;
-    })
+      return ret;
+}})
 .add_argument("lhs", "NDArray-or-Symbol", "First input.")
 .add_argument("rhs", "NDArray-or-Symbol", "Second input.")
 .describe(R"code(Broadcasts lhs to have the same shape as rhs.
 
 Broadcasting is a mechanism that allows NDArrays to perform arithmetic operations
 with arrays of different shapes efficiently without creating multiple copies of arrays.
-Also see, `Broadcasting <https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html>`_ for more explanation.
 
+Also see, `Broadcasting <https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html>`_ for more explanation.
 Broadcasting is allowed on axes with size 1, such as from `(2,1,3,1)` to
 `(2,8,3,9)`. Elements will be duplicated on the broadcasted axes.
 

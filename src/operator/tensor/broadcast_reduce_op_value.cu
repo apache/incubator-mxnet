@@ -36,6 +36,14 @@ NNVM_REGISTER_OP(broadcast_to)
 NNVM_REGISTER_OP(broadcast_like)
 .set_attr<FCompute>("FCompute<gpu>", BroadcastCompute<gpu>);
 
+NNVM_REGISTER_OP(_reduce_sum_brodcasted)
+.set_attr<FCompute>("FCompute<gpu>", [](const nnvm::NodeAttrs& attrs, const OpContext& ctx,
+  const std::vector<TBlob>& inputs, const std::vector<OpReqType>& req,
+  const std::vector<TBlob>& outputs) {
+    ReduceAxesComputeImpl<gpu, mshadow::red::sum, false, false,
+      op::mshadow_op::identity>(ctx, inputs, req, outputs, inputs[1].shape_);
+  });
+
 NNVM_REGISTER_OP(_broadcast_backward)
 .set_attr<FCompute>("FCompute<gpu>", ReduceAxesCompute<gpu, mshadow::red::sum>);
 

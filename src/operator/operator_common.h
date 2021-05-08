@@ -479,6 +479,16 @@ inline std::vector<nnvm::NodeEntry> MakeNonlossGradNode(
   return CreateNodeEntries(p, &ograds, &inputs);
 }
 
+struct NonlossGradFGradient {
+  nnvm::FGradient grad_func;
+  std::vector<nnvm::NodeEntry> operator()(const nnvm::ObjectPtr& n,
+          const std::vector<nnvm::NodeEntry>& ograds) const {
+    if (CheckGradAllZero(ograds))
+      return MakeZeroGradNodes(n, ograds);
+    return grad_func(n, ograds);
+  }
+};
+
 /*! \brief Parse keyword arguments as PType arguments and save to parsed */
 template<typename PType>
 inline void ParamParser(nnvm::NodeAttrs* attrs) {
