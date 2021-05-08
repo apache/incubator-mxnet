@@ -49,11 +49,13 @@ using mshadow::isinf_typed::IsInf;
 __constant__ const float PI = 3.14159265358979323846;
 __constant__ const float SELU_ALPHA = 1.6732632423543772848170429916717;
 __constant__ const float SELU_LAMBDA = 1.0507009873554804934193349852946;
+__constant__ const float SELU_ALPHA_MUL_LAMBDA = SELU_ALPHA * SELU_LAMBDA;
 __constant__ const float SQRT_2 = 1.4142135623730950488016887242096;
 #else
 const float PI = 3.14159265358979323846;
 const float SELU_ALPHA = 1.6732632423543772848170429916717;
 const float SELU_LAMBDA = 1.0507009873554804934193349852946;
+const float SELU_ALPHA_MUL_LAMBDA = SELU_ALPHA * SELU_LAMBDA;
 const float SQRT_2 = 1.4142135623730950488016887242096;
 #endif
 using std::enable_if;
@@ -418,13 +420,12 @@ MXNET_UNARY_MATH_OP(softsign_grad, 1.0f /  math::sqr(1.0f + math::fabs(a)));
 MXNET_UNARY_MATH_OP_NC(selu, DType(SELU_LAMBDA) *
                          (a > DType(0) ? a : DType(math::id(SELU_ALPHA) * math::expm1(a))));
 
-MXNET_UNARY_MATH_OP_NC(selu_grad,
-                       DType(SELU_LAMBDA) * (a > DType(0) ? DType(1) : DType(SELU_ALPHA + a)));
+MXNET_UNARY_MATH_OP_NC(selu_grad, 
+                       a > DType(0) ? DType(SELU_LAMBDA) : DType(math::id(a) + SELU_ALPHA_MUL_LAMBDA));
 
 MXNET_BINARY_MATH_OP_NC(prelu_grad, a > DType(0) ? DType(0) : a);
 
-MXNET_BINARY_MATH_OP_NC(xelu, a > DType(0) ? a :
-                        DType(static_cast<float>(a) * static_cast<float>(b)));
+MXNET_BINARY_MATH_OP_NC(xelu, a > DType(0) ? a : DType(math::id(a) * math::id(b)));
 
 MXNET_BINARY_MATH_OP_NC(xelu_grad, a > DType(0) ? DType(1) : b);
 
@@ -460,12 +461,37 @@ MXNET_UNARY_MATH_OP(erf_grad, 2.0 / math::sqrt(PI) * math::exp(-(a * a)));
 
 MXNET_SIMPLE_UNARY_MATH_OP(erf);
 
-MXNET_UNARY_MATH_OP(gelu,
-  DType(0.5f * static_cast<float>(a) * (1.0f + math::erf(static_cast<float>(a) / SQRT_2))));
+MXNET_UNARY_MATH_OP(gelu, 0.5f * math::id(a) * (1.0f + math::erf(math::id(a) / SQRT_2)));
 
-MXNET_BINARY_MATH_OP_NC(gelu_grad,
-  DType(0.5f * (1.0f + math::erf(static_cast<float>(a) / SQRT_2) +
-                static_cast<float>(a) * erf_grad::Map(static_cast<float>(a) / SQRT_2) / SQRT_2)));
+MXNET_UNARY_MATH_OP(gelu_grad,
+  0.5f * (1.0f + math::erf(math::id(a) / SQRT_2) +
+                math::id(a) * erf_grad::Map(math::id(a) / SQRT_2) / SQRT_2));
+
+struct mish : public mxnet_op::tunable {
+  template<typename DType>
+  MSHADOW_XINLINE static DType Map(DType a) {
+    if (a < DType(-10.0f)) {
+      return DType(0);
+    } else {
+      auto y = math::exp(-a);
+      auto z = 2.0f * y + 1.0f;
+      return DType(a * z / (2.0f * y * y + z));
+    }
+  }
+};
+
+struct mish_grad : public mxnet_op::tunable {
+  template<typename DType>
+  MSHADOW_XINLINE static DType Map(DType a, DType b) {
+    if (a < DType(-10.0f)) {
+      return DType(0);
+    } else {
+      auto y = math::exp(-a);
+      auto z = 2.0f * y + 1.0f;
+      return DType((z * (z - 1.0f) * math::id(b) + z + math::id(a)) / (2.0f * y * y + z) - math::id(b)); 
+    }
+  }
+};
 
 MXNET_SIMPLE_UNARY_MATH_OP(exp);
 
