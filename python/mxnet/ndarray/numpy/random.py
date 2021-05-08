@@ -25,7 +25,7 @@ from . import _api_internal
 
 __all__ = ['randint', 'uniform', 'normal', "choice", "rand", "multinomial", "multivariate_normal",
            'logistic', 'gumbel', "rayleigh", 'f',
-           'laplace',
+           'laplace', 'geometric',
            "shuffle", 'gamma', 'beta', 'chisquare', 'exponential', 'lognormal', 'weibull', 'pareto', 'power']
 
 
@@ -1036,3 +1036,31 @@ def laplace(loc=0.0, scale=1.0, size=None, dtype=None, ctx=None, out=None):
     if size == ():
         size = None
     return _api_internal.laplace(loc, scale, size, dtype, ctx, out)
+
+
+def geometric(p, size=None, dtype=None, ctx=None, out=None):
+    """Draw samples from the geometric distribution.
+
+    Bernoulli trials are experiments with one of two outcomes: success or failure
+    (an example of such an experiment is flipping a coin). The geometric distribution
+    models the number of trials that must be run in order to achieve success.
+    It is therefore supported on the positive integers, k = 1, 2, ....
+
+    Parameters
+    ----------
+    p : float or array_like of floats. The probability of success of an individual trial.
+    size : int or tuple of ints, optional
+        Output shape. If the given shape is, e.g., (m, n, k),
+        then m * n * k samples are drawn. If size is None (default), a single value is returned if p is a scalar.
+        Otherwise, np.array(p).size samples are drawn.
+    ctx : Context, optional
+        Device context of output. Default is current context.
+
+    Returns
+    -------
+    out : ndarray or scalar
+        Drawn samples from the parameterized geometric distribution.
+
+    The geometric distribution models the number of trials that must be run in order to achieve success.
+    """
+    return _api_internal.geometric(p, size, dtype, ctx, out)

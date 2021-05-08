@@ -4778,7 +4778,7 @@ def test_npx_sample_n():
 def test_np_random():
     shapes = [(), (1,), (2, 3), (4, 0, 5), 6, (7, 8), None]
     dtypes = ['float16', 'float32', 'float64']
-    op_names = ['uniform', 'normal', 'gamma', 'laplace']
+    op_names = ['uniform', 'normal', 'gamma', 'laplace', 'geometric']
     for shape in shapes:
         for dtype in dtypes:
             for op_name in op_names:
@@ -4786,6 +4786,8 @@ def test_np_random():
                 assert op is not None
                 if op_name == 'gamma':
                     out = op(1, size=shape, dtype=dtype)
+                elif op_name == 'geometric':
+                    out = op(0.5, size=shape, dtype=dtype)
                 else:
                     out = op(size=shape, dtype=dtype)
                 expected_shape = shape
@@ -4814,6 +4816,8 @@ def test_np_random():
             for hybridize in [False, True]:
                 if op_name == "gamma":
                     net = TestRandom(shape, op_name, 1)
+                elif op_name == "geometric":
+                    net = TestRandom(shape, op_name, 0.5)
                 else:
                     net = TestRandom(shape, op_name)
                 if hybridize:

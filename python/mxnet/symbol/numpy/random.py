@@ -26,7 +26,7 @@ from . import _internal as _npi
 __all__ = ['randint', 'uniform', 'normal', 'multivariate_normal',
            'logistic', 'gumbel', 'rayleigh', 'f',
            'rand', 'shuffle', 'gamma', 'beta', 'chisquare', 'exponential', 'lognormal',
-           'weibull', 'pareto', 'power', 'laplace']
+           'weibull', 'pareto', 'power', 'laplace', 'geometric']
 
 
 def randint(low, high=None, size=None, dtype=None, ctx=None, out=None):
@@ -1026,3 +1026,44 @@ def shuffle(x):
            [0., 1., 2.]])
     """
     _npi.shuffle(x, out=x)
+
+
+def geometric(p, size=None, dtype=None, ctx=None, out=None):
+    """Draw samples from the geometric distribution.
+
+    Bernoulli trials are experiments with one of two outcomes: success or failure
+    (an example of such an experiment is flipping a coin). The geometric distribution
+    models the number of trials that must be run in order to achieve success.
+    It is therefore supported on the positive integers, k = 1, 2, ....
+
+    Parameters
+    ----------
+    p : float or array_like of floats. The probability of success of an individual trial.
+    size : int or tuple of ints, optional
+        Output shape. If the given shape is, e.g., (m, n, k),
+        then m * n * k samples are drawn. If size is None (default), a single value is returned if p is a scalar.
+        Otherwise, np.array(p).size samples are drawn.
+    ctx : Context, optional
+        Device context of output. Default is current context.
+
+    Returns
+    -------
+    out : ndarray or scalar
+        Drawn samples from the parameterized geometric distribution.
+
+    The geometric distribution models the number of trials that must be run in order to achieve success.
+    """
+    from ._symbol import _Symbol as np_symbol
+    input_type = isinstance(p, np_symbol)
+    if dtype is None:
+        dtype = 'float32'
+    if ctx is None:
+        ctx = current_context()
+    if size == ():
+        size = None
+    if input_type:
+        return _npi.geometric(p, prob=None, size=size,
+                              ctx=ctx, dtype=dtype, out=out)
+    else:
+        return _npi.geometric(prob=p, size=size,
+                              ctx=ctx, dtype=dtype, out=out)
