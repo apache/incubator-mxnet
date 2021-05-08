@@ -470,6 +470,11 @@ struct CastParam : public dmlc::Parameter<CastParam> {
     MXNET_ADD_ALL_TYPES_WITH_BOOL
     .describe("Output data type.");
   }
+  void SetAttrDict(std::unordered_map<std::string, std::string>* dict) {
+    std::ostringstream dtype_s;
+    dtype_s << dtype;
+    (*dict)["dtype"] = MXNetTypeWithBool2String(dtype);
+  }
 };
 
 inline bool CastType(const nnvm::NodeAttrs& attrs,

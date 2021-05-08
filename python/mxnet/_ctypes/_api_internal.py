@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""CachedOp APIs exposed from C++."""
+"""NDArray APIs exposed from C++."""
 
 import mxnet._ffi
 
-mxnet._ffi._init_api("cached_op", __name__)
+mxnet._ffi._init_api("ndarray", __name__)

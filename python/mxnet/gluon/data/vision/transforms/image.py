@@ -701,7 +701,7 @@ class RandomGray(HybridBlock):
             mat = F.np.concatenate((F.np.full((3, 1), 0.2989),
                                     F.np.full((3, 1), 0.5870),
                                     F.np.full((3, 1), 0.114)), axis=1)
-            x = F.npx.cast(x, dtype='float32')
+            x = x.astype(dtype='float32')
             gray = F.np.where(self.p < F.np.random.uniform(), x, F.np.dot(x, mat))
         else:
             mat = F.concat(F.full((3, 1), 0.2989),

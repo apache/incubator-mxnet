@@ -48,14 +48,14 @@ class CachedOp(object):
         self.is_np_sym = bool(isinstance(sym, _Symbol))
 
         flags = {key: str(value) for key, value in flags}
-        self.handle = CachedOpHandle(_api_internal.create(
+        self.handle = CachedOpHandle(_api_internal.cached_op_create(
             sym.handle,
             flags,
             thread_safe
         ))
 
     def __del__(self):
-        _api_internal.free(self.handle)
+        _api_internal.cached_op_free(self.handle)
 
     def get_optimized_symbol(self):
         """Get an optimized version of the symbol from the cached op.
@@ -66,7 +66,7 @@ class CachedOp(object):
             Optimized symbol from the executor.
         """
         from ..symbol import Symbol
-        sym_handle = SymbolHandle(_api_internal.get_optimized_symbol(self.handle))
+        sym_handle = SymbolHandle(_api_internal.cached_op_get_optimized_symbol(self.handle))
         ret = Symbol(sym_handle)
         return ret
 
@@ -85,7 +85,7 @@ class CachedOp(object):
             type_id = default_ctx.device_typeid if default_ctx else None
             device_id = default_ctx.device_id if default_ctx else None
             out_arg = out if out is not None and not isinstance(out, NDArrayBase) else (out, )
-            output_vars = _api_internal.invoke(
+            output_vars = _api_internal.cached_op_invoke(
                 self.handle,
                 len(args),
                 *args,
@@ -157,4 +157,4 @@ class CachedOp(object):
         if callback:
             self._monitor_callback = cb_type(_monitor_callback_wrapper(callback))
         callback_ptr = ctypes.cast(self._monitor_callback, ctypes.c_void_p)
-        _api_internal.register_op_hook(self.handle, callback_ptr, monitor_all)
+        _api_internal.cached_op_register_op_hook(self.handle, callback_ptr, monitor_all)

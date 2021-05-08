@@ -29,7 +29,7 @@
 
 namespace mxnet {
 
-MXNET_REGISTER_GLOBAL("cached_op.invoke")
+MXNET_REGISTER_GLOBAL("ndarray.cached_op_invoke")
 .set_body([](runtime::MXNetArgs args, runtime::MXNetRetValue* ret) {
   CachedOpPtr op_shared = *static_cast<CachedOpPtr*>(args[0].value().v_handle);
   // CachedOp* points to CachedOpThreadSafe object if CreateCachedOpEX
@@ -88,7 +88,7 @@ MXNET_REGISTER_GLOBAL("cached_op.invoke")
   }
 });
 
-MXNET_REGISTER_GLOBAL("cached_op.create")
+MXNET_REGISTER_GLOBAL("ndarray.cached_op_create")
 .set_body([](runtime::MXNetArgs args, runtime::MXNetRetValue* ret) {
   nnvm::Symbol* sym = static_cast<nnvm::Symbol*>(args[0].value().v_handle);
   Object* flags_ptr = static_cast<Object*>(args[1].value().v_handle);
@@ -110,13 +110,13 @@ MXNET_REGISTER_GLOBAL("cached_op.create")
   *ret = static_cast<void*>(out);
 });
 
-MXNET_REGISTER_GLOBAL("cached_op.free")
+MXNET_REGISTER_GLOBAL("ndarray.cached_op_free")
 .set_body([](runtime::MXNetArgs args, runtime::MXNetRetValue* ret) {
   CachedOpPtr* g = static_cast<CachedOpPtr*>(args[0].value().v_handle);
   delete g;
 });
 
-MXNET_REGISTER_GLOBAL("cached_op.get_optimized_symbol")
+MXNET_REGISTER_GLOBAL("ndarray.cached_op_get_optimized_symbol")
 .set_body([](runtime::MXNetArgs args, runtime::MXNetRetValue* ret) {
   auto s = new nnvm::Symbol();
   CachedOpPtr op = *static_cast<CachedOpPtr*>(args[0].value().v_handle);
@@ -124,7 +124,7 @@ MXNET_REGISTER_GLOBAL("cached_op.get_optimized_symbol")
   *ret = static_cast<void*>(static_cast<SymbolHandle>(s));
 });
 
-MXNET_REGISTER_GLOBAL("cached_op.register_op_hook")
+MXNET_REGISTER_GLOBAL("ndarray.cached_op_register_op_hook")
 .set_body([](runtime::MXNetArgs args, runtime::MXNetRetValue* ret) {
   CachedOpHandle handle = static_cast<CachedOpHandle>(args[0].value().v_handle);
   CachedOpMonitorCallback callback = reinterpret_cast<CachedOpMonitorCallback>(

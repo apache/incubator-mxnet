@@ -120,11 +120,13 @@ def test_contrib_intgemm_take_weight(indices, api):
 @pytest.mark.parametrize('weight_cols', range(8, 24, 8))
 @pytest.mark.parametrize('api', [
     (mx.nd.contrib, mx.nd, mx.nd.FullyConnected, mx.nd.cast),
-    (npx, np, npx.fully_connected, npx.cast)])
+    (npx, np, npx.fully_connected, mx.nd.np._api_internal.cast)])
 def test_contrib_intgemm_multiply(data_rows, inner, weight_cols, api):
     if "intgemm_fully_connected" not in dir(mx.nd.contrib):
         return
-    contrib, top, fully_connected, cast = api
+    contrib, top, fully_connected, cast_api = api
+    def cast(a, dtype=None):
+        return cast_api(a, dtype)
     #The multiplication routine has approximations so everything is tested
     #deterministically to ensure bounds are met.
     random.seed(1)
