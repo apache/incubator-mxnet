@@ -61,8 +61,19 @@ class FFTOp : public Operator {
  public:
   explicit FFTOp(FFTParam p) {
     this->param_ = p;
-    init_cufft_ = false;
+    forward_init_cufft_ = false;
+    backward_init_cufft_ = false;
     dim_ = 0;
+    n_ffts_ = 0;
+  }
+
+  virtual ~FFTOp() {
+    if (forward_init_cufft_) {
+      DeinitForward();
+    }
+    if (backward_init_cufft_) {
+      DeinitBackward();
+    }
   }
 
   virtual void Forward(const OpContext &ctx,
@@ -75,26 +86,16 @@ class FFTOp : public Operator {
     CHECK_EQ(in_data.size(), 1);
     CHECK_EQ(out_data.size(), 1);
 
-    // the last dimention should be the dimension of fft vector
-    if (!init_cufft_) {
-      n_ffts = in_data[fft::kData].shape_.ProdShape(0, in_data[fft::kData].ndim()-1);
-      dim_ = in_data[fft::kData].shape_[in_data[fft::kData].ndim()-1];
-
-      stride_ = param_.compute_size*dim_;
-
-      init_cufft_ = true;
-
-      // will handle the (possibly) incomplete group later
-      num_compute = n_ffts / param_.compute_size;
+    if (!IsForwardInitializedFor(in_data)) {
+      ForwardInit(in_data);
     }
-
 
     Stream<xpu> *s = ctx.get_stream<xpu>();
     // const mxnet::TShape& oshape = out_data[fft::kOutComplex].shape_;
     Tensor<xpu, 2, DType> data = in_data[fft::kData].get_with_shape<xpu, 2, DType>(
-          Shape2(n_ffts, dim_), s);
+          Shape2(n_ffts_, dim_), s);
     Tensor<xpu, 2, DType> out = out_data[fft::kOutComplex].get_with_shape<xpu, 2, DType>(
-          Shape2(n_ffts, dim_*2), s);
+          Shape2(n_ffts_, dim_*2), s);
 
     // need temp space to pad the data into complex numbers due to cufft interface
     Tensor<xpu, 1, DType> workspace =
@@ -103,8 +104,6 @@ class FFTOp : public Operator {
     Tensor<xpu, 2, DType> complex_data = Tensor<xpu, 2, DType>(workspace.dptr_,
                                               Shape2(param_.compute_size, dim_*2), s);
     // start fft
-    cufftHandle plan;
-    cufftPlanMany(&plan, 1, &dim_, nullptr, 0, 0, nullptr, 0, 0, CUFFT_C2C, param_.compute_size);
     for (size_t idx=0; idx < num_compute; ++idx) {
       complex_data = complex_pad_imag(data.Slice(idx*param_.compute_size,
                                                  idx*param_.compute_size+param_.compute_size));
@@ -112,27 +111,22 @@ class FFTOp : public Operator {
       cufftComplex* in_tmp = const_cast<cufftComplex*>(
         reinterpret_cast<const cufftComplex*>(complex_data.dptr_));
       cufftComplex* out_tmp = reinterpret_cast<cufftComplex*>(out.dptr_ + 2*idx*stride_);
-      CHECK_EQ(cufftExecC2C(plan, in_tmp, out_tmp, CUFFT_FORWARD), CUFFT_SUCCESS);
+      CHECK_EQ(cufftExecC2C(forward_cufft_plan_, in_tmp, out_tmp, CUFFT_FORWARD), CUFFT_SUCCESS);
     }
-    cufftDestroy(plan);
 
     // handle the remaining samples
-    size_t remain_num = n_ffts - param_.compute_size*num_compute;
-    if (remain_num > 0) {
-      cufftHandle plan_remain;
-      cufftPlanMany(&plan_remain, 1, &dim_, nullptr, 0, 0, nullptr, 0, 0,
-                    CUFFT_C2C, remain_num);
-
+    if (forward_remain_num_ > 0) {
       complex_data = Tensor<xpu, 2, DType>(workspace.dptr_,
-                                          Shape2(remain_num, dim_*2), s);
-      complex_data = complex_pad_imag(data.Slice(
-          num_compute*param_.compute_size, num_compute*param_.compute_size+remain_num));
+                                          Shape2(forward_remain_num_, dim_*2), s);
+      complex_data =
+        complex_pad_imag(data.Slice(num_compute*param_.compute_size,
+                         num_compute*param_.compute_size+forward_remain_num_));
 
       cufftComplex* in_tmp = const_cast<cufftComplex*>(
         reinterpret_cast<const cufftComplex*>(complex_data.dptr_));
       cufftComplex* out_tmp = reinterpret_cast<cufftComplex*>(out.dptr_ + 2*num_compute*stride_);
-      CHECK_EQ(cufftExecC2C(plan_remain, in_tmp, out_tmp, CUFFT_FORWARD), CUFFT_SUCCESS);
-      cufftDestroy(plan_remain);
+      CHECK_EQ(cufftExecC2C(forward_cufft_plan_remain_, in_tmp, out_tmp,
+               CUFFT_FORWARD), CUFFT_SUCCESS);
     }
   }
 
@@ -151,10 +145,14 @@ class FFTOp : public Operator {
 
     Stream<xpu> *s = ctx.get_stream<xpu>();
 
+    if (!IsBackwardInitializedFor(in_data)) {
+      BackwardInit(in_data);
+    }
+
     Tensor<xpu, 2, DType> gdata = in_grad[fft::kData].get_with_shape<xpu, 2, DType>(
-          Shape2(n_ffts, dim_), s);
+          Shape2(n_ffts_, dim_), s);
     Tensor<xpu, 2, DType> grad = out_grad[fft::kOutComplex].get_with_shape<xpu, 2, DType>(
-          Shape2(n_ffts, dim_*2), s);
+          Shape2(n_ffts_, dim_*2), s);
     // need temp space to pad the data into complex numbers due to cufft interface
     Tensor<xpu, 1, DType> workspace =
             ctx.requested[fft::kTempSpace].get_space_typed<xpu, 1, DType>(
@@ -166,37 +164,31 @@ class FFTOp : public Operator {
     // In this solution, out_grad must comes from a fft of real signal,
     // so that it is Hermitian symmetric, giving a real output
     // but if it is not, remember that we have implemented complex_take_real, and use this
-    cufftHandle plan;
-    cufftPlanMany(&plan, 1, &dim_, nullptr, 0, 0, nullptr, 0, 0, CUFFT_C2C, param_.compute_size);
     for (size_t idx = 0; idx < num_compute; ++idx) {
       cufftComplex* in_tmp = const_cast<cufftComplex*>(
         reinterpret_cast<const cufftComplex*>(grad.dptr_ + 2*idx*stride_));
       cufftComplex* out_tmp = reinterpret_cast<cufftComplex*>(complex_data.dptr_);
-      CHECK_EQ(cufftExecC2C(plan, in_tmp, out_tmp, CUFFT_INVERSE), CUFFT_SUCCESS);
+      CHECK_EQ(cufftExecC2C(backward_cufft_plan_, in_tmp, out_tmp, CUFFT_INVERSE), CUFFT_SUCCESS);
 
       Assign(gdata.Slice(idx*param_.compute_size, (idx+1)*param_.compute_size),
              req[fft::kData], complex_toreal(complex_data));
     }
-    cufftDestroy(plan);
 
     // handle the remaining samples
-    size_t remain_num = n_ffts - param_.compute_size*num_compute;
-    if (remain_num > 0) {
-      cufftHandle plan_remain;
-      cufftPlanMany(&plan_remain, 1, &dim_, nullptr, 0, 0, nullptr, 0, 0,
-                    CUFFT_C2C, remain_num);
+    if (backward_remain_num_ > 0) {
       complex_data = Tensor<xpu, 2, DType>(workspace.dptr_,
-                                              Shape2(remain_num, dim_*2), s);
+                                           Shape2(backward_remain_num_, dim_*2),
+                                           s);
 
       cufftComplex* in_tmp = const_cast<cufftComplex*>(
         reinterpret_cast<const cufftComplex*>(grad.dptr_ + 2*num_compute*stride_));
       cufftComplex* out_tmp = reinterpret_cast<cufftComplex*>(complex_data.dptr_);
-      CHECK_EQ(cufftExecC2C(plan_remain, in_tmp, out_tmp, CUFFT_INVERSE), CUFFT_SUCCESS);
+      CHECK_EQ(cufftExecC2C(backward_cufft_plan_remain_, in_tmp, out_tmp,
+               CUFFT_INVERSE), CUFFT_SUCCESS);
 
       Assign(gdata.Slice(param_.compute_size*num_compute,
-                         param_.compute_size*num_compute+remain_num),
+                         param_.compute_size*num_compute+backward_remain_num_),
              req[fft::kData], complex_toreal(complex_data));
-      cufftDestroy(plan_remain);
     }
     // for bp, we should not divide it
     // but for comparison with np.fft.ifft, we should do it.
@@ -205,9 +197,89 @@ class FFTOp : public Operator {
 
  private:
   FFTParam param_;
-  int dim_, stride_, n_ffts;
-  size_t num_compute;
-  bool init_cufft_;
+  int dim_, stride_, n_ffts_;
+  size_t num_compute, forward_remain_num_, backward_remain_num_;
+  bool forward_init_cufft_, backward_init_cufft_;
+  cufftHandle forward_cufft_plan_, forward_cufft_plan_remain_,
+      backward_cufft_plan_, backward_cufft_plan_remain_;
+
+  static int GetNumFFTsFrom(const std::vector<TBlob> &in_data) {
+    return in_data[fft::kData].shape_.ProdShape(0, in_data[fft::kData].ndim()-1);
+  }
+
+  static int GetDimFrom(const std::vector<TBlob> &in_data) {
+    return in_data[fft::kData].shape_[in_data[fft::kData].ndim()-1];
+  }
+
+  void DeinitForward() {
+    cufftDestroy(forward_cufft_plan_);
+    cufftDestroy(forward_cufft_plan_remain_);
+    forward_init_cufft_ = false;
+  }
+
+  void DeinitBackward() {
+    cufftDestroy(backward_cufft_plan_);
+    cufftDestroy(backward_cufft_plan_remain_);
+    backward_init_cufft_ = false;
+  }
+
+  bool IsSameShape(const std::vector<TBlob> &in_data) const {
+    return n_ffts_ == GetNumFFTsFrom(in_data) && dim_ == GetDimFrom(in_data);
+  }
+
+  bool IsForwardInitializedFor(const std::vector<TBlob> &in_data) const {
+    return forward_init_cufft_ && IsSameShape(in_data);
+  }
+
+  bool IsBackwardInitializedFor(const std::vector<TBlob> &in_data) const {
+    return backward_init_cufft_ && IsSameShape(in_data);
+  }
+
+  void InitShape(const std::vector<TBlob> &in_data) {
+    n_ffts_ = GetNumFFTsFrom(in_data);
+    dim_ = GetDimFrom(in_data);
+
+    stride_ = param_.compute_size*dim_;
+
+    // will handle the (possibly) incomplete group later
+    num_compute = n_ffts_ / param_.compute_size;
+  }
+
+  void ForwardInit(const std::vector<TBlob> &in_data) {
+    if (forward_init_cufft_) {
+      DeinitForward();
+    }
+
+    InitShape(in_data);
+
+    forward_remain_num_ = n_ffts_ - param_.compute_size*num_compute;
+
+    cufftPlanMany(&forward_cufft_plan_, 1, &dim_, nullptr, 0, 0, nullptr, 0, 0,
+                  CUFFT_C2C, param_.compute_size);
+
+    cufftPlanMany(&forward_cufft_plan_remain_, 1, &dim_, nullptr, 0, 0,
+                  nullptr, 0, 0, CUFFT_C2C, forward_remain_num_);
+
+    forward_init_cufft_ = true;
+  }
+
+  void BackwardInit(const std::vector<TBlob> &in_data) {
+    if (backward_init_cufft_) {
+      DeinitBackward();
+    }
+
+    InitShape(in_data);
+
+    backward_remain_num_ = n_ffts_ - param_.compute_size*num_compute;
+
+    cufftPlanMany(&backward_cufft_plan_, 1, &dim_, nullptr, 0, 0, nullptr,
+                  0, 0, CUFFT_C2C, param_.compute_size);
+
+    cufftPlanMany(&backward_cufft_plan_remain_, 1, &dim_, nullptr, 0, 0,
+                  nullptr, 0, 0, CUFFT_C2C, backward_remain_num_);
+
+    backward_init_cufft_ = true;
+  }
 };  // class FFTOp
 #endif  // MXNET_USE_CUDA
 
