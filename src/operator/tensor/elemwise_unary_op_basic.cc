@@ -679,6 +679,54 @@ Example::
 .add_argument("data", "NDArray-or-Symbol", "The input.")
 .add_arguments(CastParam::__FIELDS__());
 
+NNVM_REGISTER_OP(cast_like)
+.describe(R"code(Cast elements of `lhs` to have the same dtype as elements of `rhs`.
+
+Example::
+
+  cast_like([0.9, 1.3], [1, 1]) = [0, 1]
+  cast_like([1, 2], [1.0, 1]) = [1.0, 2.0]
+
+)code" ADD_FILELINE)
+.add_alias("_npx_cast_like")
+.set_num_inputs(2)
+.set_num_outputs(1)
+.set_attr<nnvm::FListInputNames>("FListInputNames",
+  [](const NodeAttrs& attrs) { return std::vector<std::string>{"lhs", "rhs"}; })
+.set_attr<mxnet::FInferShape>("FInferShape", [](const nnvm::NodeAttrs& attrs,
+                                                mxnet::ShapeVector *in_attrs,
+                                                mxnet::ShapeVector *out_attrs) {
+    // Always the shape of LHS.
+    CHECK_EQ(in_attrs->size(), 2) << " in operator " << attrs.name;
+    const mxnet::TShape &lshape = (*in_attrs)[0];
+    SHAPE_ASSIGN_CHECK(*out_attrs, 0, lshape);
+    return shape_is_known(lshape);
+  })
+.set_attr<nnvm::FInferType>("FInferType", [](const nnvm::NodeAttrs& attrs,
+                                             std::vector<int> *in_attrs,
+                                             std::vector<int> *out_attrs) {
+    // Always the type of RHS.
+    CHECK_EQ(in_attrs->size(), 2) << " in operator " << attrs.name;
+    std::vector<int> checked_in_attrs = { (*in_attrs)[1] };
+    bool ret = !type_is_none((*in_attrs)[1]) &&
+               ElemwiseType<1, 1>(attrs, &checked_in_attrs, out_attrs);
+    (*in_attrs)[1] = checked_in_attrs[1];
+    return ret;
+  })
+.set_attr<FCompute>("FCompute<cpu>", CastCompute<cpu>)
+.set_attr<nnvm::FGradient>("FGradient",
+    [](const nnvm::NodePtr& n, const std::vector<nnvm::NodeEntry>& ograds) {
+      if (CheckGradAllZero(ograds)) return MakeZeroGradNodes(n, ograds);
+      std::vector<nnvm::NodeEntry> ret;
+      ret.emplace_back(MakeNode("zeros_like", n->attrs.name + "_backward_grad_lhs",
+                                {n->inputs[0]}, nullptr, &n));
+      ret.emplace_back(MakeNode("zeros_like", n->attrs.name + "_backward_grad_rhs",
+                                {n->inputs[1]}, nullptr, &n));
+      return ret;
+  })
+.add_argument("lhs", "NDArray-or-Symbol", "First input.")
+.add_argument("rhs", "NDArray-or-Symbol", "Second input.");
+
 NNVM_REGISTER_OP(_backward_cast)
 .set_attr<nnvm::TIsBackward>("TIsBackward", true)
 .set_attr<nnvm::FInplaceOption>("FInplaceOption",

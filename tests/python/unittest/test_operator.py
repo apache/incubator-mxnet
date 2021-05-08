@@ -4291,6 +4291,29 @@ def test_cast():
             assert_almost_equal(exe.outputs[0], X.astype(srctype).astype(dsttype), rtol=1e-3, atol=1e-5)
             assert_almost_equal(exe.grad_arrays[0], X.astype(dsttype).astype(srctype), rtol=1e-3, atol=1e-5)
 
+
+@with_seed()
+def test_cast_like():
+    for srctype in [np.int32, np.float32, np.float16]:
+        for dsttype in [np.float32, np.int32, np.float16]:
+            x_shape = rand_shape_nd(random.randint(1, 5))
+            y_shape = rand_shape_nd(random.randint(1, 5))
+            x = mx.sym.Variable('x', dtype=srctype)
+            y = mx.sym.Variable('y', dtype=dsttype)
+            z = mx.sym.cast_like(x, y)
+            exe = z.simple_bind(ctx=default_context(), x=x_shape, y=y_shape)
+            assert exe.arg_arrays[0].dtype == srctype
+            assert exe.outputs[0].dtype == dsttype
+            X = np.random.uniform(-10, 10, size=x_shape)
+            Y = np.random.uniform(-10, 10, size=y_shape)
+            exe.arg_arrays[0][:] = X
+            exe.arg_arrays[1][:] = Y
+            exe.forward(is_train=True)
+            exe.backward(mx.nd.array(X, dtype=dsttype, ctx=default_context()))
+            assert_almost_equal(exe.outputs[0].asnumpy(), X.astype(srctype).astype(dsttype), rtol=1e-3, atol=1e-5)
+            assert_almost_equal(exe.grad_arrays[0].asnumpy(), X.astype(dsttype).astype(srctype), rtol=1e-3, atol=1e-5)
+
+
 def get_cast_op_data():
     FP16_FRACTION_BITS = 10
     FP32_FRACTION_BITS = 23
