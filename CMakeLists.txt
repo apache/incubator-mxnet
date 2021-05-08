@@ -455,6 +455,8 @@ set(GTEST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/googletest/googletest")
 set(GTEST_INCLUDE_DIR ${GTEST_ROOT}/include)
 set(GTEST_MAIN_LIBRARY gtest_main)
 set(GTEST_LIBRARY gtest)
+set(GTEST_LIBRARY_TYPE SHARED)
+set(GTEST_MAIN_LIBRARY_TYPE SHARED)
 
 add_subdirectory(${GTEST_ROOT})
 set_target_properties(gtest PROPERTIES CXX_CLANG_TIDY "")  # don't lint 3rdparty dependency
