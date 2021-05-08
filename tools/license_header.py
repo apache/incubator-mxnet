@@ -110,12 +110,8 @@ _WHITE_LIST = [
                # This file
                'tools/license_header.py',
 
-               # Github template
-               '.github/ISSUE_TEMPLATE/bug_report.md',
-               '.github/ISSUE_TEMPLATE/feature_request.md',
-               '.github/ISSUE_TEMPLATE/flaky_test.md',
-               '.github/ISSUE_TEMPLATE/rfc.md',
-               '.github/PULL_REQUEST_TEMPLATE.md'
+               # Github templates
+               '.github'
                ]
 
 # language extensions and the according commment mark
