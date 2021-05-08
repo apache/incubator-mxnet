@@ -35,6 +35,7 @@
 #include "./thread_pool.h"
 #include "../common/lazy_alloc_array.h"
 #include "../common/utils.h"
+#include "../common/nvtx.h"
 
 namespace mxnet {
 namespace engine {
@@ -271,7 +272,19 @@ class ThreadedEnginePerDevice : public ThreadedEngine {
     OpenMP::Get()->on_start_worker_thread(false);
 
     while (task_queue->Pop(&opr_block)) {
+#if MXNET_USE_NVTX
+      auto nvtx_name = opr_block->opr->opr_name != "" ? opr_block->opr->opr_name : "Op";
+      auto end_pos = nvtx_name.find('{');
+      auto name_prefix_len = end_pos != std::string::npos
+                             ? end_pos - nvtx_name.size()
+                             : nvtx_name.size();
+      auto color = common::cuda::nvtx::nameToColor(nvtx_name, name_prefix_len);
+      common::cuda::nvtx::gpuRangeStart(color, nvtx_name);
+#endif
       this->ExecuteOprBlock(run_ctx, opr_block);
+#if MXNET_USE_NVTX
+      common::cuda::nvtx::gpuRangeStop();
+#endif
     }
 #else
     ready_event->signal();
