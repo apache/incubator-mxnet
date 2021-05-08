@@ -300,6 +300,8 @@ class ImageFolderDataset(dataset.Dataset):
         A function that takes data and label and transforms them::
 
             transform = lambda data, label: (data.astype(np.float32)/255, label)
+    synsets : list, default None
+        User defined synsets.
 
     Attributes
     ----------
@@ -308,7 +310,8 @@ class ImageFolderDataset(dataset.Dataset):
     items : list of tuples
         List of all images in (filename, label) pairs.
     """
-    def __init__(self, root, flag=1, transform=None):
+
+    def __init__(self, root, flag=1, transform=None, synsets=None):
         self._root = os.path.expanduser(root)
         self._flag = flag
         if transform is not None:
@@ -317,14 +320,17 @@ class ImageFolderDataset(dataset.Dataset):
                 'Please use dataset.transform() or dataset.transform_first() instead...')
         self._transform = transform
         self._exts = ['.jpg', '.jpeg', '.png']
+        self.synsets = synsets
         self._list_images(self._root)
         self._handle = None
 
     def _list_images(self, root):
-        self.synsets = []
+        if self.synsets is None:
+            self.synsets = sorted(os.listdir(root))
+
         self.items = []
 
-        for folder in sorted(os.listdir(root)):
+        for label, folder in enumerate(self.synsets):
             path = os.path.join(root, folder)
             if not os.path.isdir(path):
                 warnings.warn('Ignoring %s, which is not a directory.'%path, stacklevel=3)
