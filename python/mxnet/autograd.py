@@ -316,7 +316,8 @@ def grad(heads, variables, head_grads=None, retain_graph=None, create_graph=Fals
     """
     head_handles, hgrad_handles = _parse_head(heads, head_grads)
 
-    if isinstance(variables, NDArray):
+    var_not_list = isinstance(variables, NDArray)
+    if var_not_list:
         variables = [variables]
     else:
         assert len(variables), "variables cannot be an empty list."
@@ -341,7 +342,7 @@ def grad(heads, variables, head_grads=None, retain_graph=None, create_graph=Fals
     ret = [_ndarray_cls(ctypes.cast(grad_vars[i], NDArrayHandle),
                         stype=grad_stypes[i])
            for i in range(len(var_handles))]
-    if isinstance(variables, NDArray):
+    if var_not_list:
         return ret[0]
     return ret
 
