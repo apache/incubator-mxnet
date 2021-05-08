@@ -242,14 +242,14 @@ Example 2::
                   [0, 4, 1, 5],
                   [1, 0, 1, 3]]]])
 
-  warp_maxtrix = array([[[[1, 1, 1, 1],
-                          [1, 1, 1, 1],
-                          [1, 1, 1, 1],
-                          [1, 1, 1, 1]],
-                         [[0, 0, 0, 0],
-                          [0, 0, 0, 0],
-                          [0, 0, 0, 0],
-                          [0, 0, 0, 0]]]])
+  warp_matrix = array([[[[1, 1, 1, 1],
+                         [1, 1, 1, 1],
+                         [1, 1, 1, 1],
+                         [1, 1, 1, 1]],
+                        [[0, 0, 0, 0],
+                         [0, 0, 0, 0],
+                         [0, 0, 0, 0],
+                         [0, 0, 0, 0]]]])
 
   grid = GridGenerator(data=warp_matrix, transform_type='warp')
   out = BilinearSampler(data, grid)
