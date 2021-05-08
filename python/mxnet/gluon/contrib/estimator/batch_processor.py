@@ -40,6 +40,10 @@ class BatchProcessor(object):
         pass
 
     def _get_data_and_label(self, batch, ctx, batch_axis=0):
+        if not isinstance(batch, list):
+            raise ValueError("Default batch processor only supports batch of [data, label]"
+                             "Alternatively, you can write customized batch processor for"
+                             "your estimator.")
         data = batch[0]
         label = batch[1]
         data = split_and_load(data, ctx_list=ctx, batch_axis=batch_axis)
