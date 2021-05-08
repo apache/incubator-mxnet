@@ -274,10 +274,19 @@ NNVM_REGISTER_OP(_contrib_mrcnn_mask_target)
 .describe("Generate mask targets for Mask-RCNN.")
 .set_num_inputs(4)
 .set_num_outputs(2)
+.set_attr<nnvm::FListInputNames>("FListInputNames",
+    [](const NodeAttrs& attrs) {
+  return std::vector<std::string>{"rois", "gt_masks", "matches", "cls_targets"};
+})
+.set_attr<nnvm::FListOutputNames>("FListOutputNames",
+    [](const NodeAttrs& attrs) {
+  return std::vector<std::string>{"masks_output", "mask_classes_output"};
+})
 .set_attr_parser(ParamParser<MRCNNMaskTargetParam>)
 .set_attr<mxnet::FInferShape>("FInferShape", MRCNNMaskTargetShape)
 .set_attr<nnvm::FInferType>("FInferType", MRCNNMaskTargetType)
 .set_attr<FCompute>("FCompute<gpu>", MRCNNMaskTargetCompute<gpu>)
+.set_attr<nnvm::FGradient>("FGradient", MakeZeroGradNodes)
 .add_argument("rois", "NDArray-or-Symbol", "Bounding box coordinates, a 3D array")
 .add_argument("gt_masks", "NDArray-or-Symbol", "Input masks of full image size, a 4D array")
 .add_argument("matches", "NDArray-or-Symbol", "Index to a gt_mask, a 2D array")
