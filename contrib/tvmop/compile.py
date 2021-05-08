@@ -102,8 +102,9 @@ def get_cuda_arch(arch):
     # an example of arch string,
     # -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35
     # -gencode;arch=compute_75,code=[sm_75,compute_75] --fatbin-options -compress-all
+    # -gencode;arch=compute_30,code=sm_30;-gencode;arch=compute_35,code=sm_35
     archs = []
-    flags = arch.replace("-gencode;", "-gencode ").split()
+    flags = arch.replace(";", " ").split()
     for flag in flags:
         if flag.startswith('-gencode') or flag.startswith('arch='):
             archs.append(flag)
