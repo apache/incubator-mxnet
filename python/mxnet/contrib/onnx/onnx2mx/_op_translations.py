@@ -330,7 +330,8 @@ def deconv(attrs, inputs, proto_obj):
                                                                'strides' : 'stride',
                                                                'pads': 'pad',
                                                                'dilations': 'dilate',
-                                                               'group': 'num_group'})
+                                                               'group': 'num_group',
+                                                               'output_padding': 'adj'})
     new_attrs = translation_utils._add_extra_attributes(new_attrs, {'num_group' : 1})
     new_attrs = translation_utils._fix_bias('Deconvolution', new_attrs, len(inputs))
 
@@ -343,6 +344,7 @@ def deconv(attrs, inputs, proto_obj):
     num_group = new_attrs['num_group']
     no_bias = new_attrs['no_bias'] if 'no_bias' in new_attrs else False
     bias = None if no_bias is True else inputs[2]
+    adj = new_attrs['adj'][:len(kernel)]
 
     # Unlike ONNX, MXNet's deconvolution operator does not support asymmetric padding, so we first
     # use 'Pad' operator, which supports asymmetric padding. Then use the deconvolution operator.
@@ -351,7 +353,8 @@ def deconv(attrs, inputs, proto_obj):
 
     deconv_op = symbol.Deconvolution(pad_op, inputs[1], bias,
                                      kernel=kernel, stride=stride, dilate=dilations,
-                                     num_filter=num_filter, num_group=num_group, no_bias=no_bias)
+                                     num_filter=num_filter, num_group=num_group, no_bias=no_bias,
+                                     adj=adj)
 
     return deconv_op, new_attrs, inputs
 
