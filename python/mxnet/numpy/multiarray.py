@@ -506,7 +506,7 @@ class ndarray(NDArray):  # pylint: disable=invalid-name
         if type(idcs) == NDArray:  # pylint: disable=unidiomatic-typecheck
             idcs = idcs.as_np_ndarray()
         else:
-            idcs = _npi.stack(*[i if isinstance(i, self.__class__) else i.as_np_ndarray() for i in idcs])
+            idcs = _mx_nd_np.stack([i if isinstance(i, self.__class__) else i.as_np_ndarray() for i in idcs])
         sliced = _npi.gather_nd(self, idcs)
         # Reshape due to `None` entries in `key`.
         if new_axes:
@@ -523,7 +523,7 @@ class ndarray(NDArray):  # pylint: disable=invalid-name
         if type(idcs) == NDArray:  # pylint: disable=unidiomatic-typecheck
             idcs = idcs.as_np_ndarray()
         else:
-            idcs = _npi.stack(*[i if isinstance(i, self.__class__) else i.as_np_ndarray() for i in idcs])
+            idcs = _mx_nd_np.stack([i if isinstance(i, self.__class__) else i.as_np_ndarray() for i in idcs])
         vshape = get_oshape_of_gather_nd_op(self.shape, idcs.shape)
         value_nd = self._prepare_value_nd(value, bcast_shape=vshape, squeeze_axes=new_axes)
         self._scatter_set_nd(value_nd, idcs)
@@ -769,7 +769,7 @@ class ndarray(NDArray):  # pylint: disable=invalid-name
            all((isinstance(arr, NDArray) and _np.issubdtype(arr.dtype, _np.integer) and \
                 arr.ndim > 0) for arr in key):
             # Equivalent case in numpy/_symbol.py
-            return _npi.advanced_indexing_multiple(self, _npi.stack(*key))
+            return _npi.advanced_indexing_multiple(self, _mx_nd_np.stack(key))
         elif isinstance(key, tuple) and dc.is_deferred_compute():
             # Equivalent to isinstance(key, tuple) case in numpy/_symbol.py
             # Only enabled in deferred compute mode, as this codepath prevents
