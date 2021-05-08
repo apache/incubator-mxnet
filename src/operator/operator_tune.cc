@@ -58,6 +58,8 @@ IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(mshadow::half::half_t);
 IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(mshadow::bfloat::bf16_t);
 IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(int8_t);
 IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(uint8_t);
+IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(int16_t);
+IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(uint16_t);
 IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(int32_t);
 IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(int64_t);
 IMPLEMENT_OPERATOR_TUNE_STATICS_FOR_TYPE(bool);
@@ -78,24 +80,28 @@ struct static_init_var {
  *        appending the data type to the end of the arguments
  */
 #define MSHADOW_MACRO_FOREACH_TYPE(__macro$, ...) \
-  __macro$(__VA_ARGS__, float); \
-  __macro$(__VA_ARGS__, double); \
-  __macro$(__VA_ARGS__, mshadow::half::half_t); \
+  __macro$(__VA_ARGS__, float);                   \
+  __macro$(__VA_ARGS__, double);                  \
+  __macro$(__VA_ARGS__, mshadow::half::half_t);   \
   __macro$(__VA_ARGS__, mshadow::bfloat::bf16_t); \
-  __macro$(__VA_ARGS__, uint8_t); \
-  __macro$(__VA_ARGS__, int8_t); \
-  __macro$(__VA_ARGS__, int32_t); \
+  __macro$(__VA_ARGS__, uint8_t);                 \
+  __macro$(__VA_ARGS__, int8_t);                  \
+  __macro$(__VA_ARGS__, uint16_t);                 \
+  __macro$(__VA_ARGS__, int16_t);                  \
+  __macro$(__VA_ARGS__, int32_t);                 \
   __macro$(__VA_ARGS__, int64_t);
 
 #define MSHADOW_MACRO_FOREACH_TYPE_WITH_BOOL(__macro$, ...) \
-  __macro$(__VA_ARGS__, float); \
-  __macro$(__VA_ARGS__, double); \
-  __macro$(__VA_ARGS__, mshadow::half::half_t); \
-  __macro$(__VA_ARGS__, mshadow::bfloat::bf16_t); \
-  __macro$(__VA_ARGS__, uint8_t); \
-  __macro$(__VA_ARGS__, int8_t); \
-  __macro$(__VA_ARGS__, int32_t); \
-  __macro$(__VA_ARGS__, int64_t); \
+  __macro$(__VA_ARGS__, float);                             \
+  __macro$(__VA_ARGS__, double);                            \
+  __macro$(__VA_ARGS__, mshadow::half::half_t);             \
+  __macro$(__VA_ARGS__, mshadow::bfloat::bf16_t);           \
+  __macro$(__VA_ARGS__, uint8_t);                           \
+  __macro$(__VA_ARGS__, int8_t);                            \
+  __macro$(__VA_ARGS__, uint16_t);                           \
+  __macro$(__VA_ARGS__, int16_t);                            \
+  __macro$(__VA_ARGS__, int32_t);                           \
+  __macro$(__VA_ARGS__, int64_t);                           \
   __macro$(__VA_ARGS__, bool)
 
 #define IMPLEMENT_WORKLOAD_VALUE_FOR_TYPE(__op$, __typ$) \
@@ -441,6 +447,8 @@ static BinaryOpTune<mshadow::half::half_t>   binaryOpTuneHalf;
 static BinaryOpTune<mshadow::bfloat::bf16_t> binaryOpTuneBf16;
 static BinaryOpTune<int8_t>                  binaryOpTuneInt8;
 static BinaryOpTune<uint8_t>                 binaryOpTuneUInt8;
+static BinaryOpTune<int16_t>                 binaryOpTuneInt16;
+static BinaryOpTune<uint16_t>                binaryOpTuneUInt16;
 static BinaryOpTune<int32_t>                 binaryOpTuneInt32;
 static BinaryOpTune<int64_t>                 binaryOpTuneInt64;
 #endif  // MXNET_USE_OPERATOR_TUNING

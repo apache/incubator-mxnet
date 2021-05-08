@@ -21,7 +21,7 @@
 
 import numpy as onp
 
-__all__ = ['float16', 'float32', 'float64', 'uint8', 'int32', 'int8', 'int64',
+__all__ = ['float16', 'float32', 'float64', 'uint8', 'uint16', 'int16', 'int32', 'int8', 'int64',
            'bool', 'bool_', 'pi', 'inf', 'nan', 'PZERO', 'NZERO', 'newaxis', 'finfo',
            'e', 'NINF', 'PINF', 'NAN', 'NaN',
            '_STR_2_DTYPE_']
@@ -30,6 +30,8 @@ float16 = onp.float16
 float32 = onp.float32
 float64 = onp.float64
 uint8 = onp.uint8
+uint16 = onp.uint16
+int16 = onp.int16
 int32 = onp.int32
 int8 = onp.int8
 int64 = onp.int64
@@ -51,8 +53,8 @@ newaxis = None
 finfo = onp.finfo
 
 _STR_2_DTYPE_ = {'float16': float16, 'float32': float32, 'float64':float64, 'float': float64,
-                 'uint8': uint8, 'int8': int8, 'int32': int32, 'int64': int64, 'int': int64,
-                 'bool': bool, 'bool_': bool_, 'None': None}
+                 'uint8': uint8, 'int8': int8, 'uint16': uint16, 'int16': int16, 'int32': int32,
+                 'int64': int64, 'int': int64, 'bool': bool, 'bool_': bool_, 'None': None}
 
 _ONP_OP_MODULES = [onp, onp.linalg, onp.random, onp.fft]
 

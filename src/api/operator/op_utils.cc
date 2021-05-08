@@ -40,6 +40,10 @@ std::string MXNetTypeWithBool2String(int dtype) {
       return "uint8";
     case mshadow::kInt8:
       return "int8";
+    case mshadow::kUint16:
+      return "uint16";
+    case mshadow::kInt16:
+      return "int16";
     case mshadow::kInt32:
       return "int32";
     case mshadow::kInt64:

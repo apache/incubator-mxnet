@@ -413,6 +413,8 @@ struct PrefetcherParam : public dmlc::Parameter<PrefetcherParam> {
       .add_enum("bfloat16", mshadow::kBfloat16)
       .add_enum("int64", mshadow::kInt64)
       .add_enum("int32", mshadow::kInt32)
+      .add_enum("uint16", mshadow::kUint16)
+      .add_enum("int16", mshadow::kInt16)
       .add_enum("uint8", mshadow::kUint8)
       .add_enum("int8", mshadow::kInt8)
       .set_default(dmlc::optional<int>())

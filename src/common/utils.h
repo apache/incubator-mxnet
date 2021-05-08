@@ -875,8 +875,8 @@ inline bool is_float(const int dtype) {
 }
 
 inline bool is_int(const int dtype) {
-  return dtype == mshadow::kUint8 || dtype == mshadow::kInt8 ||
-         dtype == mshadow::kInt32 || dtype == mshadow::kInt64;
+  return dtype == mshadow::kUint8 || dtype == mshadow::kInt8 || dtype == mshadow::kUint16 ||
+         dtype == mshadow::kInt16 || dtype == mshadow::kInt32 || dtype == mshadow::kInt64;
 }
 
 inline int get_more_precise_type(const int type1, const int type2) {
@@ -897,6 +897,9 @@ inline int get_more_precise_type(const int type1, const int type2) {
   }
   if (type1 == mshadow::kInt32 || type2 == mshadow::kInt32) {
     return mshadow::kInt32;
+  }
+  if (type1 == mshadow::kInt16 || type2 == mshadow::kInt16) {
+    return mshadow::kInt16;
   }
   CHECK(!((type1 == mshadow::kUint8 && type2 == mshadow::kInt8) ||
           (type1 == mshadow::kInt8 && type2 == mshadow::kUint8)))

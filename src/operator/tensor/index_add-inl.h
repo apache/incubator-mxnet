@@ -151,7 +151,7 @@ void IndexAddOpForward(const nnvm::NodeAttrs& attrs,
   TBlob t_ind = TBlob(ctx.requested[0].get_space_typed<xpu, 1, int>
                 (Shape1(ind.shape_.Size()), s));
   mxnet_op::copy(s, t_ind, ind);
-  MSHADOW_TYPE_SWITCH(a.type_flag_, DType, {
+  MXNET_NO_INT16_TYPE_SWITCH(a.type_flag_, DType, {
     IndexAddForwardCalc<xpu, DType>(s, ind_num,
                                     out.dptr<DType>(), val.dptr<DType>(),
                                     a_tail_shape, a_pre_stride,

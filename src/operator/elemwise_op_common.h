@@ -208,6 +208,8 @@ inline bool ElemwiseIntType(const nnvm::NodeAttrs& attrs,
                             std::vector<int> *out_attrs) {
   CHECK(in_attrs->at(0) == mshadow::kInt64 ||
         in_attrs->at(0) == mshadow::kInt32 ||
+        in_attrs->at(0) == mshadow::kInt16 ||
+        in_attrs->at(0) == mshadow::kUint16 ||
         in_attrs->at(0) == mshadow::kInt8 ||
         in_attrs->at(0) == mshadow::kUint8 ||
         in_attrs->at(0) == mshadow::kBool) << "Only supports integer types.";

@@ -255,6 +255,7 @@ inline bool IsIntType(const int dtype) {
   return (dtype == mshadow::kUint8 ||
           dtype == mshadow::kInt32 ||
           dtype == mshadow::kInt8 ||
+          dtype == mshadow::kInt16 ||
           dtype == mshadow::kInt64);
 }
 

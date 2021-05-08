@@ -437,6 +437,10 @@ class OperatorTune : public OperatorTuneByType<DType> {
       return mshadow::kInt8;
     if (type_string == "uint8")
       return mshadow::kUint8;
+    if (type_string == "int16")
+      return mshadow::kInt16;
+    if (type_string == "uint16")
+      return mshadow::kUint16;
     if (type_string == "int32")
       return mshadow::kInt32;
     if (type_string == "int64")
@@ -460,6 +464,8 @@ class OperatorTune : public OperatorTuneByType<DType> {
       OperatorTuneByType<double>::set_tuning_mode(tune::kAlwaysOMP);
       OperatorTuneByType<int8_t>::set_tuning_mode(tune::kAlwaysOMP);
       OperatorTuneByType<uint8_t>::set_tuning_mode(tune::kAlwaysOMP);
+      OperatorTuneByType<int16_t>::set_tuning_mode(tune::kAlwaysOMP);
+      OperatorTuneByType<uint16_t>::set_tuning_mode(tune::kAlwaysOMP);
       OperatorTuneByType<int32_t>::set_tuning_mode(tune::kAlwaysOMP);
       OperatorTuneByType<int64_t>::set_tuning_mode(tune::kAlwaysOMP);
       // See if it's a non-number (ie type or list of types)
@@ -486,6 +492,12 @@ class OperatorTune : public OperatorTuneByType<DType> {
               case mshadow::kUint8:
                 OperatorTuneByType<uint8_t>::set_tuning_mode(tune::kAuto);
                 break;
+              case mshadow::kInt16:
+                OperatorTuneByType<int16_t>::set_tuning_mode(tune::kAuto);
+                break;
+              case mshadow::kUint16:
+                OperatorTuneByType<uint16_t>::set_tuning_mode(tune::kAuto);
+                break;
               case mshadow::kInt32:
                 OperatorTuneByType<int32_t>::set_tuning_mode(tune::kAuto);
                 break;
@@ -507,6 +519,8 @@ class OperatorTune : public OperatorTuneByType<DType> {
           OperatorTuneByType<double>::set_tuning_mode(tune::kAuto);
           OperatorTuneByType<int8_t>::set_tuning_mode(tune::kAuto);
           OperatorTuneByType<uint8_t>::set_tuning_mode(tune::kAuto);
+          OperatorTuneByType<int16_t>::set_tuning_mode(tune::kAuto);
+          OperatorTuneByType<uint16_t>::set_tuning_mode(tune::kAuto);
           OperatorTuneByType<int32_t>::set_tuning_mode(tune::kAuto);
           OperatorTuneByType<int64_t>::set_tuning_mode(tune::kAuto);
           OperatorTuneByType<mshadow::half::half_t>::set_tuning_mode(tune::kAuto);

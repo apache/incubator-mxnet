@@ -77,7 +77,7 @@ void IndexAddOpBackwardValImpl<gpu>(const OpContext& ctx,
   using namespace mxnet_op;
   mshadow::Stream<gpu> *s = ctx.get_stream<gpu>();
   int seg = MXNET_SPECIAL_MAX_NDIM - ndim;
-  MSHADOW_TYPE_SWITCH(grad_val.type_flag_, DType, {
+  MXNET_NO_INT16_TYPE_SWITCH(grad_val.type_flag_, DType, {
     Kernel<IndexAddBackwardValGPUKernel, gpu>::Launch(
     s, ind_num, grad_val.dptr<DType>(), ograd.dptr<DType>(), t_ind.dptr<int>(),
     ograd_tail_shape, ograd_pre_stride, val_stride, val_shape, tail_size,

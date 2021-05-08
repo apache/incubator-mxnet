@@ -100,8 +100,8 @@ void NumpyBincountForwardImpl<gpu>(const OpContext &ctx,
     const_cast<NDArray &>(out).Init(s);  // set the output shape forcefully
   });
 
-  MSHADOW_TYPE_SWITCH(data.dtype(), DType, {
-      MSHADOW_TYPE_SWITCH(weights.dtype(), OType, {
+  MXNET_NO_INT16_TYPE_SWITCH(data.dtype(), DType, {
+      MXNET_NO_INT16_TYPE_SWITCH(weights.dtype(), OType, {
         size_t out_size = out.shape().Size();
         Kernel<set_zero, gpu>::Launch(s, out_size, out.data().dptr<OType>());
         Kernel<BincountFusedKernel, gpu>::Launch(
@@ -143,8 +143,8 @@ void NumpyBincountForwardImpl<gpu>(const OpContext &ctx,
     const_cast<NDArray &>(out).Init(s);  // set the output shape forcefully
   });
 
-  MSHADOW_TYPE_SWITCH(data.dtype(), DType, {
-    MSHADOW_TYPE_SWITCH(out.dtype(), OType, {
+  MXNET_NO_INT16_TYPE_SWITCH(data.dtype(), DType, {
+    MXNET_NO_INT16_TYPE_SWITCH(out.dtype(), OType, {
       size_t out_size = out.shape().Size();
       Kernel<set_zero, gpu>::Launch(s, out_size, out.data().dptr<OType>());
       Kernel<BincountFusedKernel, gpu>::Launch(

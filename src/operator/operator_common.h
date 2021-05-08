@@ -146,6 +146,10 @@ inline std::string type_string(const int& x) {
       return "int8";
     case mshadow::kUint8:
       return "uint8";
+    case mshadow::kInt16:
+      return "int8";
+    case mshadow::kUint16:
+      return "uint8";
     case mshadow::kInt32:
       return "int32";
     case mshadow::kInt64:

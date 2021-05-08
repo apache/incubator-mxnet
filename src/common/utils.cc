@@ -119,10 +119,14 @@ MShadowTypeInfo mshadow_type_info(const int type_flag) {
       return MShadowTypeInfo("float16", 2, sizeof(float));
     case kUint8:
       return MShadowTypeInfo("uint8", sizeof(uint8_t), sizeof(index_t));
+    case kUint16:
+      return MShadowTypeInfo("uint16", sizeof(uint16_t), sizeof(index_t));
     case kInt32:
       return MShadowTypeInfo("int32", sizeof(int32_t));
     case kInt8:
       return MShadowTypeInfo("int8", sizeof(int8_t), sizeof(index_t));
+    case kInt16:
+      return MShadowTypeInfo("int16", sizeof(int16_t), sizeof(index_t));
     case kInt64:
       return MShadowTypeInfo("int64", sizeof(int64_t));
     case kBool:

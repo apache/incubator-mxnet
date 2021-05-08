@@ -160,6 +160,14 @@ void mxnet::ext::MXTensor::setDLTensor() {
     dltensor.dtype.code = kDLInt;
     dltensor.dtype.bits = 8;
     break;
+  case kUint16:
+    dltensor.dtype.code = kDLUInt;
+    dltensor.dtype.bits = 16;
+    break;
+  case kInt16:
+    dltensor.dtype.code = kDLInt;
+    dltensor.dtype.bits = 16;
+    break;
   case kInt64:
     dltensor.dtype.code = kDLInt;
     dltensor.dtype.bits = 64;

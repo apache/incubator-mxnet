@@ -49,6 +49,8 @@ namespace bfloat {
   MSHADOW_BF16_OPERATOR_TYPE(double, double, OP)                          \
   MSHADOW_BF16_OPERATOR_TYPE(float, int8_t, OP)                           \
   MSHADOW_BF16_OPERATOR_TYPE(float, uint8_t, OP)                          \
+  MSHADOW_BF16_OPERATOR_TYPE(float, int16_t, OP)                           \
+  MSHADOW_BF16_OPERATOR_TYPE(float, uint16_t, OP)                          \
   MSHADOW_BF16_OPERATOR_TYPE(float, int32_t, OP)                          \
   MSHADOW_BF16_OPERATOR_TYPE(float, uint32_t, OP)                         \
   MSHADOW_BF16_OPERATOR_TYPE(float, int64_t, OP)                          \
@@ -88,6 +90,8 @@ static MSHADOW_XINLINE bf16_t Binary(uint16_t value) {
   MSHADOW_XINLINE explicit bf16_t(const double& value) { constructor(value); }
   MSHADOW_XINLINE explicit bf16_t(const int8_t& value) { constructor(value); }
   MSHADOW_XINLINE explicit bf16_t(const uint8_t& value) { constructor(value); }
+  MSHADOW_XINLINE explicit bf16_t(const int16_t &value) { constructor(value); }
+  MSHADOW_XINLINE explicit bf16_t(const uint16_t &value) { constructor(value); }
   MSHADOW_XINLINE explicit bf16_t(const int32_t& value) { constructor(value); }
   MSHADOW_XINLINE explicit bf16_t(const uint32_t& value) { constructor(value); }
   MSHADOW_XINLINE explicit bf16_t(const int64_t& value) { constructor(value); }

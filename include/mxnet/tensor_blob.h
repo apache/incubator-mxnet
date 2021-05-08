@@ -384,6 +384,8 @@ class TBlob {
       case mshadow::kUint8: return DLDataType{kDLUInt, 8, 1};
       case mshadow::kInt32: return DLDataType{kDLInt, 32, 1};
       case mshadow::kInt8: return DLDataType{kDLInt, 8, 1};
+      case mshadow::kUint16: return DLDataType{kDLUInt, 16, 1};
+      case mshadow::kInt16: return DLDataType{kDLInt, 16, 1};
       case mshadow::kInt64: return DLDataType{kDLInt, 64, 1};
       case mshadow::kBool: return DLDataType{kDLUInt, 1, 1};
       default: {
@@ -413,11 +415,13 @@ class TBlob {
         switch (dldata_type.bits) {
           case 1: return mshadow::kBool;
           case 8: return mshadow::kUint8;
+          case 16: return mshadow::kUint16;
         }
         break;
       case kDLInt:
         switch (dldata_type.bits) {
           case 8: return mshadow::kInt8;
+          case 16: return mshadow::kInt16;
           case 32: return mshadow::kInt32;
           case 64: return mshadow::kInt64;
         }

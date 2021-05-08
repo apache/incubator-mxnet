@@ -37,6 +37,7 @@ def test_np_empty():
     # (input dtype, expected output dtype)
     dtype_pairs = [
         (np.int8, np.int8),
+        (np.int16, np.int16),
         (np.int32, np.int32),
         (np.float16, np.float16),
         (np.float32, np.float32),
@@ -44,6 +45,7 @@ def test_np_empty():
         (np.bool_, np.bool_),
         (np.bool, np.bool_),
         ('int8', np.int8),
+        ('int16', np.int16),
         ('int32', np.int32),
         ('float16', np.float16),
         ('float32', np.float32),
@@ -79,8 +81,8 @@ def test_np_empty():
 
 @use_np
 def test_np_array_creation():
-    dtypes = [_np.int8, _np.int32, _np.float16, _np.float32, _np.float64, _np.bool, _np.bool_,
-              'int8', 'int32', 'float16', 'float32', 'float64', 'bool', None]
+    dtypes = [_np.int8, _np.int16, _np.int32, _np.float16, _np.float32, _np.float64, _np.bool, _np.bool_,
+              'int8', 'int16', 'int32', 'float16', 'float32', 'float64', 'bool', None]
     objects = [
         [],
         (),

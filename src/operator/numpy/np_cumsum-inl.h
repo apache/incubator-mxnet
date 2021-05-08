@@ -50,6 +50,7 @@ struct CumsumParam : public dmlc::Parameter<CumsumParam> {
       .add_enum("float32", mshadow::kFloat32)
       .add_enum("float64", mshadow::kFloat64)
       .add_enum("int8", mshadow::kInt8)
+      .add_enum("int16", mshadow::kInt16)
       .add_enum("int32", mshadow::kInt32)
       .add_enum("int64", mshadow::kInt64)
       .set_default(dmlc::optional<int>())

@@ -255,6 +255,8 @@ enum MXDType {
   kInt32 = 4,
   kInt8  = 5,
   kInt64 = 6,
+  kUint16 = 7,
+  kInt16 = 8,
   kUNSET = 100,
 };
 

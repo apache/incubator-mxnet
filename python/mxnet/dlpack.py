@@ -48,10 +48,12 @@ class DLDataType(ctypes.Structure):
                 ("bits", ctypes.c_uint8),
                 ("lanes", ctypes.c_uint16)]
     TYPE_MAP = {
+        "int16": (0, 16, 1),
         "int32": (0, 32, 1),
         "int64": (0, 64, 1),
         "bool": (1, 1, 1),
         "uint8": (1, 8, 1),
+        "uint16": (1, 16, 1),
         "uint32": (1, 32, 1),
         "uint64": (1, 64, 1),
         'float16': (2, 16, 1),

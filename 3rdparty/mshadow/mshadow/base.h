@@ -445,6 +445,16 @@ struct DataType<int8_t> {
 #endif
 };
 template<>
+struct DataType<uint16_t> {
+  static const int kFlag = kUint16;
+  static const int kLanes = 1;
+};
+template<>
+struct DataType<int16_t> {
+  static const int kFlag = kInt16;
+  static const int kLanes = 1;
+};
+template<>
 struct DataType<int32_t> {
   static const int kFlag = kInt32;
   static const int kLanes = 1;
@@ -757,6 +767,16 @@ template<>
 MSHADOW_XINLINE int8_t MinValue<int8_t>(void) {
   return SCHAR_MIN;
 }
+/*! \brief minimum value of uint16_t */
+template<>
+MSHADOW_XINLINE uint16_t MinValue<uint16_t>(void) {
+  return 0;
+}
+/*! \brief minimum value of int16_t */
+template<>
+MSHADOW_XINLINE int16_t MinValue<int16_t>(void) {
+  return SHRT_MIN;
+}
 /*! \brief minimum value of int32_t */
 template<>
 MSHADOW_XINLINE int MinValue<int32_t>(void) {
@@ -838,6 +858,16 @@ MSHADOW_XINLINE uint8_t MaxValue<uint8_t>(void) {
 template<>
 MSHADOW_XINLINE int8_t MaxValue<int8_t>(void) {
   return SCHAR_MAX;
+}
+/*! \brief maximum value of uint16_t */
+template<>
+MSHADOW_XINLINE uint16_t MaxValue<uint16_t>(void) {
+  return USHRT_MAX;
+}
+/*! \brief maximum value of int16_t */
+template<>
+MSHADOW_XINLINE int16_t MaxValue<int16_t>(void) {
+  return SHRT_MAX;
 }
 /*! \brief maximum value of int32_t */
 template<>
@@ -1101,6 +1131,18 @@ struct minimum {
       {__VA_ARGS__}                                 \
     }                                               \
     break;                                          \
+  case mshadow::kUint16:                            \
+    {                                               \
+      typedef uint16_t DType;                       \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kInt16:                             \
+    {                                               \
+      typedef int16_t DType;                        \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
   case mshadow::kInt32:                             \
     {                                               \
       typedef int32_t DType;                        \
@@ -1146,6 +1188,18 @@ struct minimum {
   case mshadow::kInt8:                              \
     {                                               \
       typedef int8_t DType;                         \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kUint16:                            \
+    {                                               \
+      typedef uint16_t DType;                       \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kInt16:                             \
+    {                                               \
+      typedef int16_t DType;                        \
       {__VA_ARGS__}                                 \
     }                                               \
     break;                                          \
@@ -1213,6 +1267,14 @@ struct minimum {
     LOG(FATAL) << "This operation only support "    \
                   "floating point types not int8";  \
     break;                                          \
+  case mshadow::kUint16:                            \
+    LOG(FATAL) << "This operation only support "    \
+                  "floating point types not uint16";\
+    break;                                          \
+  case mshadow::kInt16:                             \
+    LOG(FATAL) << "This operation only support "    \
+                  "floating point types not int16"; \
+    break;                                          \
   case mshadow::kInt32:                             \
     LOG(FATAL) << "This operation only support "    \
                   "floating point types, not int32";\
@@ -1220,6 +1282,62 @@ struct minimum {
   case mshadow::kInt64:                             \
     LOG(FATAL) << "This operation only support "    \
                   "floating point types, not int64";\
+    break;                                          \
+  default:                                          \
+    LOG(FATAL) << "Unknown type enum " << type;     \
+  }
+
+#define MSHADOW_NO_INT16_TYPE_SWITCH(type, DType, ...)  \
+  switch (type) {                                   \
+  case mshadow::kFloat32:                           \
+    {                                               \
+      typedef float DType;                          \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kFloat64:                           \
+    {                                               \
+      typedef double DType;                         \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kFloat16:                           \
+    {                                               \
+      typedef mshadow::half::half_t DType;          \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kUint8:                             \
+    {                                               \
+      typedef uint8_t DType;                        \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kInt8:                              \
+    {                                               \
+      typedef int8_t DType;                         \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kUint16:                            \
+    LOG(FATAL) << "This operation only support "    \
+                  "floating point types not uint16";\
+    break;                                          \
+  case mshadow::kInt16:                             \
+    LOG(FATAL) << "This operation only support "    \
+                  "floating point types not int16"; \
+    break;                                          \
+  case mshadow::kInt32:                             \
+    {                                               \
+      typedef int32_t DType;                        \
+      {__VA_ARGS__}                                 \
+    }                                               \
+    break;                                          \
+  case mshadow::kInt64:                             \
+    {                                               \
+      typedef int64_t DType;                        \
+      {__VA_ARGS__}                                 \
+    }                                               \
     break;                                          \
   default:                                          \
     LOG(FATAL) << "Unknown type enum " << type;     \
@@ -1264,6 +1382,14 @@ struct minimum {
     LOG(FATAL) << "This operation only support "    \
                   "floating point types not int8";  \
     break;                                          \
+  case mshadow::kUint16:                            \
+    LOG(FATAL) << "This operation only support "    \
+                  "floating point types not uint16";\
+    break;                                          \
+  case mshadow::kInt16:                             \
+    LOG(FATAL) << "This operation only support "    \
+                  "floating point types not int16"; \
+    break;                                          \
   case mshadow::kInt32:                             \
     LOG(FATAL) << "This operation only support "    \
                   "floating point types, not int32";\
@@ -1306,6 +1432,14 @@ struct minimum {
   case mshadow::kInt8:                              \
     LOG(FATAL) << "This operation only support "    \
                   "floating point types not int8";  \
+    break;                                          \
+  case mshadow::kUint16:                            \
+    LOG(FATAL) << "This operation only support "    \
+                  "floating point types not uint16";\
+    break;                                          \
+  case mshadow::kInt16:                             \
+    LOG(FATAL) << "This operation only support "    \
+                  "floating point types not int16"; \
     break;                                          \
   case mshadow::kInt32:                             \
     LOG(FATAL) << "This operation only support "    \
@@ -1403,6 +1537,18 @@ struct minimum {
       {__VA_ARGS__}                                           \
     }                                                         \
     break;                                                    \
+  case mshadow::kUint16:                                      \
+    {                                                         \
+      typedef uint16_t DType;                                 \
+      {__VA_ARGS__}                                           \
+    }                                                         \
+    break;                                                    \
+  case mshadow::kInt16:                                       \
+    {                                                         \
+      typedef int16_t DType;                                  \
+      {__VA_ARGS__}                                           \
+    }                                                         \
+    break;                                                    \
   case mshadow::kInt32:                                       \
     {                                                         \
       typedef int32_t DType;                                  \
@@ -1445,6 +1591,10 @@ inline std::string dtype_string(const int dtype) {
       return "unsigned char";
     case mshadow::kInt8:
       return "char";
+    case mshadow::kUint16:
+      return "unsigned short";
+    case mshadow::kInt16:
+      return "short";
     case mshadow::kInt32:
       return "int";
     case mshadow::kInt64:

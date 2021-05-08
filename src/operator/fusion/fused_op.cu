@@ -45,6 +45,10 @@ inline std::string mshadowTypeToString(int type) {
       return "unsigned char";
     case mshadow::kInt8:
       return "char";
+    case mshadow::kUint16:
+      return "unsigned short";
+    case mshadow::kInt16:
+      return "short";
     case mshadow::kInt32:
       return "int";
     case mshadow::kInt64:
