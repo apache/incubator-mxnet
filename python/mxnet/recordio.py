@@ -18,6 +18,7 @@
 """Read and write for the RecordIO data format."""
 from collections import namedtuple
 from multiprocessing import current_process
+from threading import get_ident
 
 import ctypes
 import struct
@@ -66,6 +67,7 @@ class MXRecordIO(object):
         self.handle = RecordIOHandle()
         self.flag = flag
         self.pid = None
+        self.tid = None
         self.is_open = False
         self.open()
 
@@ -82,6 +84,7 @@ class MXRecordIO(object):
         # pylint: disable=not-callable
         # It's bug from pylint(astroid). See https://github.com/PyCQA/pylint/issues/1699
         self.pid = current_process().pid
+        self.tid = get_ident()
         self.is_open = True
 
     def __del__(self):
@@ -117,7 +120,7 @@ class MXRecordIO(object):
         """Check process id to ensure integrity, reset if in new process."""
         # pylint: disable=not-callable
         # It's bug from pylint(astroid). See https://github.com/PyCQA/pylint/issues/1699
-        if not self.pid == current_process().pid:
+        if not self.pid == current_process().pid or not self.tid == get_ident():
             if allow_reset:
                 self.reset()
             else:
@@ -133,6 +136,7 @@ class MXRecordIO(object):
             check_call(_LIB.MXRecordIOReaderFree(self.handle))
         self.is_open = False
         self.pid = None
+        self.tid = None
 
     def reset(self):
         """Resets the pointer to first item.
