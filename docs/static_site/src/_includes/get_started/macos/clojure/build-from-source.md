@@ -1,0 +1,1 @@
+Please refer to the [MXNet-Clojure setup guide](https://github.com/apache/incubator-mxnet/tree/master/contrib/clojure-package) for a detailed set of instructions to help you with the setup process that is required to use the Clojure dependency.
