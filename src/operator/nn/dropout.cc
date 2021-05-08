@@ -111,18 +111,29 @@ Example::
 })
 .set_attr<mxnet::FInferShape>("FInferShape", [](const nnvm::NodeAttrs& attrs,
       mxnet::ShapeVector *in_shape, mxnet::ShapeVector *out_shape){
-  using namespace mshadow;
   CHECK_EQ(in_shape->size(), 1U);
   const DropoutParam& param = nnvm::get<DropoutParam>(attrs.parsed);
-  mxnet::TShape dshape(in_shape->at(0));
+  TShape dshape(in_shape->at(0));
   if (!mxnet::ndim_is_known(dshape)) return false;
   out_shape->clear();
   out_shape->push_back(dshape);
-  for (int i = 0; i < param.axes.ndim(); ++i) {
-    dshape[param.axes[i]] = 1;
+  if (param.axes.ndim() > 0) {
+    for (int i = 0; i < param.axes.ndim(); ++i) {
+      dshape[param.axes[i]] = 1;
+    }
   }
-  out_shape->push_back(dshape);
-  return true;
+
+  if (mxnet::shape_is_known(dshape)) {
+    // Use 1-bit in mask by rounding up dshape.Size() / 8
+    TShape mshape(1, static_cast<dim_t>((dshape.Size() + 7) / 8));
+    out_shape->push_back(mshape);
+    return true;
+  } else {
+    // In the initial traverse in symbolic mode, shape could be unknown
+    TShape mshape(1, -1);
+    out_shape->push_back(mshape);
+    return false;
+  }
 })
 .set_attr<nnvm::FInferType>("FInferType", [](const nnvm::NodeAttrs& attrs,
       std::vector<int> *in_type, std::vector<int> *out_type) {
@@ -134,9 +145,9 @@ Example::
     return false;
   }
 
-  size_t nout = 2;
   out_type->clear();
-  for (size_t i = 0; i < nout; ++i) out_type->push_back(dtype);
+  out_type->push_back(dtype);  // data type for output
+  out_type->push_back(mshadow::kUint8);  // data type for mask
   return true;
 })
 .set_attr<FCreateOpState>("FCreateOpState", CreateDropoutState)
@@ -162,9 +173,7 @@ Example::
 #endif
     }
     request.emplace_back(ResourceRequest::kParallelRandom);
-#if MXNET_USE_MKL_DROPOUT
     request.emplace_back(ResourceRequest::kTempSpace);
-#endif
     return request;
   })
 .add_argument("data", "NDArray-or-Symbol", "Input array to which dropout will be applied.")

@@ -572,8 +572,8 @@ MXNET_UNARY_MATH_OP(square, math::sqr(a));
 MXNET_UNARY_MATH_OP(square_grad, 2.0f * math::id(a));
 
 /*! \brief used for generate Bernoulli mask */
-MXNET_BINARY_MATH_OP_NC(threshold, a < b ? DType(1) : DType(0));
-MXNET_BINARY_MATH_OP_NC(threshold_eq, a <= b ? DType(1) : DType(0));
+MXNET_BINARY_LOGIC_OP_NC(threshold, a < b ? DType(1) : DType(0));
+MXNET_BINARY_LOGIC_OP_NC(threshold_eq, a <= b ? DType(1) : DType(0));
 
 /*! \brief used for generate element of abs */
 MXNET_UNARY_MATH_OP(abs, math::fabs(a)); // NOLINT(*)

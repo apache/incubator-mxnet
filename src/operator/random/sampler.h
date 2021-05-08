@@ -49,12 +49,38 @@ inline static void LaunchRNG(mshadow::Stream<xpu> *s,
   if (N <= 0) {
     return;
   }
-  const index_t nloop = (N + RandGenerator<xpu>::kMinNumRandomPerThread - 1) /
-                    RandGenerator<xpu>::kMinNumRandomPerThread;
-  const index_t nthread = std::min(nloop,
-                                   static_cast<index_t>(RandGenerator<xpu>::kNumRandomStates));
-  const index_t step = (N + nthread - 1) / nthread;
-  Kernel<OP, xpu>::Launch(s, nthread, *gen, N, step, args...);
+  int num_threads = (N + RandGenerator<xpu>::kMinNumRandomPerThread - 1) /
+      RandGenerator<xpu>::kMinNumRandomPerThread;
+  num_threads = std::min(num_threads, RandGenerator<xpu>::kNumRandomStates);
+  index_t num_steps_per_thread = std::max<index_t>((N + num_threads - 1) / num_threads,
+      RandGenerator<xpu>::kMinNumRandomPerThread);
+  Kernel<OP, xpu>::Launch(s, num_threads, *gen, N, num_steps_per_thread, args...);
+}
+
+/*!
+ * \brief Launch a generic kernel with parallel random generator.
+ * Each thread will perform a batch of iterations sequentially.
+ * \tparam gen random generator
+ * \tparam N Number of iterations
+ * \tparam batch_size number of iterations to be performed in a batch per thread
+ * \tparam Args Varargs type to eventually pass to the OP::Map() function
+ */
+template<typename OP, typename xpu, typename GType, typename ...Args>
+inline static void LaunchRNGBatch(mshadow::Stream<xpu> *s,
+                                  common::random::RandGenerator<xpu, GType> *gen,
+                                  const index_t N, const int batch_size, Args... args) {
+  // minimal check to avoid division by zero, below.
+  // if `N` is zero the map operation is a no-op in any case.
+  if (N <= 0) {
+    return;
+  }
+  int num_threads = (N + RandGenerator<xpu>::kMinNumRandomPerThread - 1) /
+      RandGenerator<xpu>::kMinNumRandomPerThread;
+  num_threads = std::min(num_threads, RandGenerator<xpu>::kNumRandomStates);
+  index_t num_steps_per_thread = std::max<index_t>((N + num_threads - 1) / num_threads,
+      RandGenerator<xpu>::kMinNumRandomPerThread);
+  num_steps_per_thread = (num_steps_per_thread + batch_size - 1) / batch_size * batch_size;
+  Kernel<OP, xpu>::Launch(s, num_threads, *gen, N, num_steps_per_thread, args...);
 }
 
 #define RNG_KERNEL_LOOP(xpu, GType, thread_id, gen, N, step, ...)        \

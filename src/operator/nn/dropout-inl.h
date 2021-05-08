@@ -79,9 +79,10 @@ struct DropoutParam : public dmlc::Parameter<DropoutParam> {
     .set_default(dropout::kTraining)
     .describe("Whether to only turn on dropout during training or to also turn on for inference.");
     DMLC_DECLARE_FIELD(axes).set_default(mxnet::TShape(0, 0))
-    .describe("Axes for variational dropout kernel.");
+    .describe("Axes for variational dropout kernel. Same dropout will be applied to elements "
+              "along the specified axis.");
     DMLC_DECLARE_FIELD(cudnn_off).set_default(dmlc::optional<bool>(false))
-    .describe("Whether to turn off cudnn in dropout operator. "
+    .describe("Whether to turn off cuDNN in dropout operator. "
               "This option is ignored if axes is specified.");
   }
   std::string Mode2String(int mode) {
@@ -134,9 +135,8 @@ class DropoutOp {
     }
   }
   static inline bool MKLAvailable() {
-    // BernoulliGenerate expects an array int, so for types smaller than int, the mask buffer
-    // will be too small, so we can;t use MKL in those cases
-    return sizeof(DType) >= sizeof(int);
+    // TODO(lnyuan): how to let user enable/disable MKL Dropout
+    return true;
   }
 
   // MKL forward pass
@@ -146,25 +146,56 @@ class DropoutOp {
     Stream<xpu> *s = ctx.get_stream<xpu>();
     RandGenerator<xpu, DType> *pgen = ctx.requested[0].get_parallel_random<xpu, DType>();
     CHECK_NOTNULL(pgen);
-    Tensor<xpu, 2, DType> mask = out_data[dropout::kMask].FlatTo2D<xpu, DType>(s);
+    Tensor<xpu, 1, uint8_t> mask = out_data[dropout::kMask].FlatTo1D<xpu, uint8_t>(s);
     Tensor<xpu, 2, DType> data = in_data[dropout::kData].FlatTo2D<xpu, DType>(s);
     Tensor<xpu, 2, DType> out = out_data[dropout::kOut].FlatTo2D<xpu, DType>(s);
     DType *outptr = out.dptr_;
     DType *dataptr = data.dptr_;
-    auto maskptr = reinterpret_cast<int *>(mask.dptr_);
-    int count = mask.shape_[0] * mask.shape_[1];
-    if (sizeof(DType) > sizeof(int)) {
-      // allocating new buffer to avoiding memory overlapping between `mask.dptr_` and `maskptr`
-      Tensor<xpu, 1, int> temp = ctx.requested[1].get_space_typed<xpu, 1, int>(Shape1(count), s);
-      maskptr = temp.dptr_;
-    }
-    BernoulliGenerate(*pgen, count, this->pkeep_, maskptr);
+
+    index_t count = data.shape_[0] * data.shape_[1];
+    // allocating buffer for MKL routine to calculate int32 based maskptr
+    Tensor<xpu, 1, int> temp_space =
+      ctx.requested[1].get_space_typed<xpu, 1, int>(Shape1(count), s);
+    auto mkl_mask = temp_space.dptr_;
+
+    BernoulliGenerate(*pgen, count, this->pkeep_, mkl_mask);
     const float pk_1 = 1.0f / this->pkeep_;
-#pragma omp parallel for num_threads(engine::OpenMP::Get()->GetRecommendedOMPThreadCount())
-    for (int i = 0; i < count; ++i) {
-      const DType maskVal = static_cast<DType>(maskptr[i]) * pk_1;
-      outptr[i] = dataptr[i] * maskVal;
-      mask.dptr_[i] = maskVal;
+    const int nthr = engine::OpenMP::Get()->GetRecommendedOMPThreadCount();
+    const int blk_size = 64;
+    const int nblk = count / blk_size;
+
+    #pragma omp parallel num_threads(nthr)
+    {
+      #pragma omp for
+      for (index_t b = 0; b < nblk; ++b) {
+        for (index_t k = 0; k < blk_size; ++k) {
+          const index_t i = b * blk_size + k;
+          outptr[i] = dataptr[i] * mkl_mask[i] * pk_1;
+          auto mask_idx = i >> 3;  // div 8
+          uint8_t mask_offset = i & 7;  // mod 8
+          if (mkl_mask[i]) {
+            // set bit
+            mask.dptr_[mask_idx] |= 1U << mask_offset;
+          } else {
+            // clear bit
+            mask.dptr_[mask_idx] &= ~(1U << mask_offset);
+          }
+        }
+      }
+    }
+
+    // tail
+    for (index_t i = nblk * blk_size; i < count; ++i) {
+      outptr[i] = dataptr[i] * mkl_mask[i] * pk_1;
+      auto mask_idx = i >> 3;  // div 8
+      uint8_t mask_offset = i & 7;  // mod 8
+      if (mkl_mask[i]) {
+        // set bit
+        mask.dptr_[mask_idx] |= 1U << mask_offset;
+      } else {
+        // clear bit
+        mask.dptr_[mask_idx] &= ~(1U << mask_offset);
+      }
     }
   }
 
@@ -175,18 +206,23 @@ class DropoutOp {
                           const std::vector<TBlob> &out_grad) {
     Stream<xpu> *s = ctx.get_stream<xpu>();
     Tensor<xpu, 2, DType> grad = out_grad[dropout::kOut].FlatTo2D<xpu, DType>(s);
-    Tensor<xpu, 2, DType> mask = out_data[dropout::kMask].FlatTo2D<xpu, DType>(s);
+    Tensor<xpu, 1, uint8_t> mask = out_data[dropout::kMask].FlatTo1D<xpu, uint8_t>(s);
     Tensor<xpu, 2, DType> gdata = in_grad[dropout::kData].FlatTo2D<xpu, DType>(s);
     DType *ingradptr = gdata.dptr_;
     const DType *outgradptr = grad.dptr_;
-    const DType *maskptr = mask.dptr_;
-    const int count = mask.shape_[0] * mask.shape_[1];
-#pragma omp parallel for num_threads(engine::OpenMP::Get()->GetRecommendedOMPThreadCount())
-    for (int i = 0; i < count; ++i) {
-      ingradptr[i] = outgradptr[i] * maskptr[i];
+    const uint8_t *maskptr = mask.dptr_;
+    const index_t count = grad.shape_[0] * grad.shape_[1];
+    const float pk_1 = 1.0f / this->pkeep_;
+    const int nthr = engine::OpenMP::Get()->GetRecommendedOMPThreadCount();
+
+#pragma omp parallel for num_threads(nthr)
+    for (index_t i = 0; i < count; ++i) {
+      auto mask_idx = i >> 3;  // div 8;
+      uint8_t mask_offset = i & 7;  // mod 8
+      bool mask_val = maskptr[mask_idx] & (1U << mask_offset);
+      ingradptr[i] = outgradptr[i] * mask_val * pk_1;
     }
   }
-
 #endif  // #if MXNET_USE_MKL_DROPOUT
 
  public:
@@ -201,7 +237,7 @@ class DropoutOp {
      * \param N Total number of items in the output
      * \param step Step between items, related to parallelism
      * \param dropout_out Output dropout values
-     * \param mask_out  Output mask (is multiplied to create dropout output, may be 0)
+     * \param mask_out  Output mask with one bit for each element
      * \param input_data Input data to perform the dropout on
      * \param pkeep Dropout rate (keep when the generated random number is less than this value)
      */
@@ -210,28 +246,101 @@ class DropoutOp {
                                     const index_t N,
                                     const index_t step,
                                     DType *dropout_out,
-                                    DType *mask_out,
+                                    uint8_t *mask_out,
                                     const DType *input_data,
                                     const real_t pkeep) {
       RNG_KERNEL_LOOP(xpu, DType, id, gen, N, step, {
         const real_t rand_num = static_cast<real_t>(genImpl.uniform());
-        mask_out[i] = mshadow_op::threshold_eq::Map<real_t>(rand_num, pkeep) * (1.0f / pkeep);
-        dropout_out[i] = input_data[i] * mask_out[i];
-      });
+        // mask_out is set per bit position
+        // therefore bitwise shift need to be performed here
+        auto mask_idx = i >> 3;  // div 8;
+        uint8_t mask_offset = i & 7;  // mod 8
+        bool mask_val = mshadow_op::threshold_eq::Map<real_t>(rand_num, pkeep);
+        const float pk_1 = 1.0f / pkeep;
+        if (mask_val) {
+          // set bit
+          mask_out[mask_idx] |= 1U << mask_offset;
+        } else {
+          // clear bit
+          mask_out[mask_idx] &= ~(1U << mask_offset);
+        }
+        dropout_out[i] = mask_val * input_data[i] * pk_1;
+      })
     }
   };
+
+  struct DropoutBackwardKernel {
+    MSHADOW_XINLINE static void Map(index_t i,
+                                    OpReqType req,
+                                    DType *igrad,
+                                    DType *ograd,
+                                    const uint8_t *mask,
+                                    const real_t pkeep) {
+      auto mask_idx = i >> 3;  // div 8;
+      uint8_t mask_offset = i & 7;  // mod 8
+      bool mask_val = mask[mask_idx] & (1U << mask_offset);
+      const float pk_1 = 1.0f / pkeep;
+      KERNEL_ASSIGN(igrad[i], req, mask_val * ograd[i] * pk_1);
+    }
+  };
+
   struct BernoulliKernel {
     /*! \brief Bernoulli kernel for generating mask */
     MSHADOW_XINLINE static void Map(index_t id,
                                     RandGenerator<xpu, DType> gen,
                                     const index_t N,
                                     const index_t step,
-                                    DType *mask_out,
+                                    DType *dropout_out,
+                                    uint8_t *mask_out,
                                     const real_t pkeep) {
       RNG_KERNEL_LOOP(xpu, DType, id, gen, N, step, {
         const real_t rand_num = static_cast<real_t>(genImpl.uniform());
-        mask_out[i] = mshadow_op::threshold::Map<real_t>(rand_num, pkeep) * (1.0f / pkeep);
-      });
+        // mask_out is set per bit position
+        // therefore bitwise shift need to be performed here
+        auto mask_idx = i >> 3;  // div 8;
+        uint8_t mask_offset = i & 7;  // mod 8
+        bool mask_val = mshadow_op::threshold_eq::Map<real_t>(rand_num, pkeep);
+        const float pk_1 = 1.0f / pkeep;
+        if (mask_val) {
+          // set bit
+          mask_out[mask_idx] |= 1U << mask_offset;
+        } else {
+          // clear bit
+          mask_out[mask_idx] &= ~(1U << mask_offset);
+        }
+        dropout_out[i] = mask_val * pk_1;
+      })
+    }
+  };
+
+  template<int ndim>
+  struct BernoulliBackwardKernel {
+    MSHADOW_XINLINE static void Map(index_t base,
+                                    index_t length,
+                                    OpReqType req,
+                                    const Shape<ndim> &lstride,
+                                    const Shape<ndim> &rstride,
+                                    const Shape<ndim> &oshape,
+                                    DType *igrad,
+                                    DType *ograd,
+                                    const uint8_t *mask,
+                                    const real_t pkeep) {
+      Shape <ndim> coord = unravel(base, oshape);
+      auto lidx = static_cast<index_t>(dot(coord, lstride));
+      auto ridx = static_cast<index_t>(dot(coord, rstride));
+      auto mask_idx = ridx >> 3;  // div 8;
+      uint8_t mask_offset = ridx & 7;  // mod 8
+      bool mask_val = mask[mask_idx] & (1U << mask_offset);
+      const float pk_1 = 1.0f / pkeep;
+      KERNEL_ASSIGN(igrad[base], req, mask_val * ograd[lidx] * pk_1);
+      // starts from 1 to avoid extra inc at end of loop
+      for (index_t i = 1; i < length; ++i) {
+        inc(&coord, oshape, &lidx, lstride, &ridx, rstride);
+        mask_idx = ridx >> 3;  // div 8
+        mask_offset = ridx & 7;  // mod 8
+        mask_val = mask[mask_idx] & (1U << mask_offset);
+        KERNEL_ASSIGN(igrad[base + i], req, mask_val * ograd[lidx] * pk_1);
+      }
     }
   };
 
@@ -305,7 +414,7 @@ class DropoutOp {
       CUDNN_CALL(cudnnDropoutGetReserveSpaceSize(x_desc_, &dropout_reserve_byte_));
       // cudnn uses bits to record the positions that are dropped, so reserve bytes is always
       // 1/8 of input size.
-      CHECK_GE(mask.Size() * sizeof(DType), dropout_reserve_byte_) <<
+      CHECK_GE(mask.Size() * sizeof(uint8_t), dropout_reserve_byte_) <<
         "The size of the mask space is smaller than the required cudnn reserved space.";
       CUDNN_CALL(cudnnDropoutForward(s->dnn_handle_,
                                      dropout_desc_,
@@ -313,7 +422,7 @@ class DropoutOp {
                                      in.dptr<DType>(),
                                      y_desc_,
                                      out.dptr<DType>(),
-                                     mask.dptr<DType>(),
+                                     mask.dptr<uint8_t>(),
                                      dropout_reserve_byte_));
   }
 
@@ -351,7 +460,7 @@ class DropoutOp {
                                       out_grad.dptr<DType>(),
                                       dx_desc_,
                                       in_grad.dptr<DType>(),
-                                      mask.dptr<DType>(),
+                                      mask.dptr<uint8_t>(),
                                       dropout_reserve_byte_));
   }
 #endif  // MXNET_USE_CUDNN_DROPOUT && defined(__CUDACC__)
@@ -370,9 +479,12 @@ class DropoutOp {
       const TBlob &in = in_data[dropout::kData];
       const TBlob &out = out_data[dropout::kOut];
       const TBlob &mask = out_data[dropout::kMask];
+      CHECK_EQ(mask.type_flag_, mshadow::kUint8);
+
       if (this->pkeep_ < 1 && (ctx.is_train || this->mode_ == dropout::kAlways)) {
         this->dropout_passthrough_ = false;
         if (this->axes_.ndim() == 0) {
+          CHECK_EQ((out.Size() + 7) / 8, mask.Size());
 #if MXNET_USE_MKL_DROPOUT
           if (MKLAvailable()) {
             MKLForward(ctx, in_data, out_data);
@@ -388,29 +500,40 @@ class DropoutOp {
           RandGenerator<xpu, DType> *pgen = ctx.requested[0].get_parallel_random<xpu, DType>();
           CHECK_NOTNULL(pgen);
           CHECK(req[dropout::kOut] != kAddTo);
-          LaunchRNG<DropoutKernel, xpu>(s, pgen, out.Size(),
-                                        out.dptr<DType>(),
-                                        mask.dptr<DType>(),
-                                        in.dptr<DType>(),
-                                        this->pkeep_);
+          // Use batch size 8 to avoid race condition on mask
+          LaunchRNGBatch<DropoutKernel, xpu>(s, pgen, out.Size(), 64 /* batch_size */,
+                                             out.dptr<DType>(),
+                                             mask.dptr<uint8_t>(),
+                                             in.dptr<DType>(),
+                                             this->pkeep_);
           return;
         } else {
+          // allocating temp buffer to store masked output
+          TShape temp_shape = out.shape_;
+          for (int i = 0; i < this->axes_.ndim(); ++i) {
+            temp_shape[this->axes_[i]] = 1;
+          }
+          CHECK_EQ((temp_shape.Size() + 7) / 8, mask.Size());
+          Tensor<xpu, 1, DType> temp =
+              ctx.requested[1].get_space_typed<xpu, 1, DType>(Shape1(temp_shape.Size()), s);
           RandGenerator<xpu, DType> *pgen = ctx.requested[0].get_parallel_random<xpu, DType>();
           CHECK_NOTNULL(pgen);
           // initialize the mask
-          LaunchRNG<BernoulliKernel, xpu>(s, pgen, mask.Size(),
-                                          mask.dptr<DType>(),
-                                          this->pkeep_);
+          // Use batch size 8 to avoid race condition on mask
+          LaunchRNGBatch<BernoulliKernel, xpu>(s, pgen, temp_shape.Size(), 64 /* batch_size */,
+                                               temp.dptr_,
+                                               mask.dptr<uint8_t>(),
+                                               this->pkeep_);
           // broadcast mul
-          mxnet::TShape new_lshape, new_rshape, new_oshape;
+          TShape new_lshape, new_rshape, new_oshape;
           int ndim = BinaryBroadcastShapeCompact(in.shape_,
-                                                 mask.shape_, out.shape_,
+                                                 temp_shape, out.shape_,
                                                  &new_lshape, &new_rshape, &new_oshape);
           if (!ndim) {
             MXNET_ASSIGN_REQ_SWITCH(req[dropout::kOut], Req, {
               mxnet_op::Kernel<mxnet_op::op_with_req<mshadow_op::mul, Req>, xpu>::Launch(
                 s, out.Size(), out.dptr<DType>(), in.dptr<DType>(),
-                mask.dptr<DType>());
+                temp.dptr_);
             });
           } else {
             BROADCAST_NDIM_SWITCH(ndim, NDim, {
@@ -419,9 +542,8 @@ class DropoutOp {
               mshadow::Shape<NDim> rstride = mxnet_op::calc_stride(new_rshape.get<NDim>());
               mxnet_op::Kernel<mxnet_op::binary_broadcast_kernel<NDim, mshadow_op::mul>, xpu>::
               template LaunchEx(s, new_oshape.Size(), req[dropout::kOut],
-              lstride, rstride, oshape,
-              in.dptr<DType>(),
-              mask.dptr<DType>(), out.dptr<DType>());
+                                lstride, rstride, oshape, in.dptr<DType>(),
+                                temp.dptr_, out.dptr<DType>());
             });
           }
         }
@@ -449,6 +571,9 @@ class DropoutOp {
       const TBlob &gdata = in_grad[dropout::kData];
       const TBlob &grad = out_grad[dropout::kOut];
       const TBlob &mask = out_data[dropout::kMask];
+      CHECK_EQ(mask.type_flag_, mshadow::kUint8);
+      CHECK_EQ((grad.Size() + 7) / 8, mask.Size());
+
       if (this->axes_.ndim() == 0) {
 #if MXNET_USE_MKL_DROPOUT
         if (MKLAvailable()) {
@@ -463,31 +588,36 @@ class DropoutOp {
         }
 #endif  // MXNET_USE_CUDNN_DROPOUT && defined(__CUDACC__)
         // standard case for dropout
-        CHECK_EQ(grad.Size(), mask.Size());
         MXNET_ASSIGN_REQ_SWITCH(req[dropout::kData], Req, {
-          mxnet_op::Kernel<mxnet_op::op_with_req<mshadow_op::mul, Req>, xpu>::Launch(
-            s, gdata.Size(), gdata.dptr<DType>(), grad.dptr<DType>(), mask.dptr<DType>());
-        });
+          mxnet_op::Kernel<DropoutBackwardKernel, xpu>::Launch(
+              s, gdata.Size(), Req, gdata.dptr<DType>(), grad.dptr<DType>(),
+              mask.dptr<uint8_t>(), pkeep_);
+        })
         return;
       } else {
+        TShape temp_shape = grad.shape_;
+        for (int i = 0; i < this->axes_.ndim(); ++i) {
+          temp_shape[this->axes_[i]] = 1;
+        }
         // broardcast mul
-        mxnet::TShape new_lshape, new_rshape, new_oshape;
+        TShape new_lshape, new_rshape, new_oshape;
         int ndim = BinaryBroadcastShapeCompact(grad.shape_,
-                                               mask.shape_, gdata.shape_,
+                                               temp_shape, gdata.shape_,
                                                &new_lshape, &new_rshape, &new_oshape);
         if (!ndim) {
           MXNET_ASSIGN_REQ_SWITCH(req[dropout::kData], Req, {
-            mxnet_op::Kernel<mxnet_op::op_with_req<mshadow_op::mul, Req>, xpu>::Launch(
-              s, gdata.Size(), gdata.dptr<DType>(), grad.dptr<DType>(), mask.dptr<DType>());
+            mxnet_op::Kernel<DropoutBackwardKernel, xpu>::Launch(
+              s, gdata.Size(), Req, gdata.dptr<DType>(), grad.dptr<DType>(),
+              mask.dptr<uint8_t >(), pkeep_);
           });
         } else {
           BROADCAST_NDIM_SWITCH(ndim, NDim, {
             mshadow::Shape<NDim> oshape = new_oshape.get<NDim>();
             mshadow::Shape<NDim> lstride = mxnet_op::calc_stride(new_lshape.get<NDim>());
             mshadow::Shape<NDim> rstride = mxnet_op::calc_stride(new_rshape.get<NDim>());
-            mxnet_op::Kernel<mxnet_op::binary_broadcast_kernel<NDim, mshadow_op::mul>, xpu>::
+            mxnet_op::Kernel<BernoulliBackwardKernel<NDim>, xpu>::
             template LaunchEx(s, new_oshape.Size(), req[0], lstride, rstride, oshape,
-            grad.dptr<DType>(), mask.dptr<DType>(), gdata.dptr<DType>());
+            gdata.dptr<DType>(), grad.dptr<DType>(), mask.dptr<uint8_t>(), pkeep_);
           });
         }
       }
