@@ -1,0 +1,61 @@
+name: java
+on:
+  push:
+    paths:
+      - java/**
+  pull_request:
+    paths:
+      - java/**
+  workflow_dispatch:
+env:
+  CI_DEPLOY_NEED_CUDA: 1
+  CI_DEPLOY_NEED_GRADLE: 1
+  CI_DEPLOY_MODULE: ${{ github.workflow }}
+  CI_DEPLOY_PLATFORM: ${{ github.job }}
+  CI_DEPLOY_USERNAME: ${{ secrets.CI_DEPLOY_USERNAME }}
+  CI_DEPLOY_PASSWORD: ${{ secrets.CI_DEPLOY_PASSWORD }}
+jobs:
+  linux-x86_64:
+    runs-on: ubuntu-16.04
+    container: centos:7
+    strategy:
+      matrix:
+        include:
+          - ext: ""
+            options: ""
+          - ext: "-gpu"
+            options: "-x test"
+    steps:
+      - run: yum -y install epel-release
+      - run: yum -y install openblas-devel openblas-static
+      - uses: bytedeco/javacpp-presets/.github/actions/deploy-centos@aa134b6146dda5829e3e911ab96e1e6d48ade9a6
+  macosx-x86_64:
+    runs-on: macos-10.15
+#    strategy:
+#      matrix:
+#        include:
+#          - ext: ""
+#            options: ""
+#          - ext: "-gpu"
+#            options: "-x test"
+    steps:
+      - run: brew install gcc openblas
+      - run: brew unlink gcc && brew link gcc
+      - uses: bytedeco/javacpp-presets/.github/actions/deploy-macosx@aa134b6146dda5829e3e911ab96e1e6d48ade9a6
+  windows-x86_64:
+    runs-on: windows-2019
+    strategy:
+      matrix:
+        include:
+          - ext: ""
+            options: ""
+          - ext: "-gpu"
+            options: "-x test"
+    steps:
+      - uses: al-cheb/configure-pagefile-action@7e234852c937eea04d6ee627c599fb24a5bfffee
+        with:
+          minimum-size: 8GB
+          maximum-size: 16GB
+          disk-root: "C:"
+      - run: C:\msys64\usr\bin\pacman -S --noconfirm mingw-w64-x86_64-openblas
+      - uses: bytedeco/javacpp-presets/.github/actions/deploy-windows@aa134b6146dda5829e3e911ab96e1e6d48ade9a6

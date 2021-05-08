@@ -1,0 +1,171 @@
+plugins {
+    id 'java-library'
+    id 'org.bytedeco.gradle-javacpp-build' version '1.5.5-SNAPSHOT'
+    id 'maven-publish'
+    id 'signing'
+}
+
+group = 'org.apache'
+version = '2.0-SNAPSHOT'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+    maven { url 'https://repository.apache.org/content/groups/snapshots/' }
+}
+
+configurations {
+    all {
+        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+    }
+    javacppPlatform
+    javacppPlatformGpu
+}
+
+dependencies {
+    api "org.bytedeco:javacpp:$javacppVersion"
+    javacppPlatform "org.bytedeco:javacpp-platform:$javacppVersion"
+    javacppPlatform "$group:mxnet:$version:linux-x86_64"
+    javacppPlatform "$group:mxnet:$version:macosx-x86_64"
+    javacppPlatform "$group:mxnet:$version:windows-x86_64"
+    javacppPlatformGpu "$group:mxnet:$version:linux-x86_64-gpu"
+//    javacppPlatformGpu "$group:mxnet:$version:macosx-x86_64-gpu"
+    javacppPlatformGpu "$group:mxnet:$version:windows-x86_64-gpu"
+    testRuntimeOnly "org.bytedeco:javacpp:$javacppVersion:$javacppPlatform"
+    testImplementation 'junit:junit:4.13.1'
+}
+
+tasks.withType(org.bytedeco.gradle.javacpp.BuildTask) {
+    includePath = ["$buildDir/$javacppPlatform$javacppPlatformExtension/include"]
+    linkPath = ["$buildDir/$javacppPlatform$javacppPlatformExtension/lib"]
+    preloadPath = ["$buildDir/$javacppPlatform$javacppPlatformExtension/bin"]
+}
+
+javacppBuildCommand {
+    buildCommand = ['bash', 'build.sh']
+}
+
+javacppBuildParser {
+    classOrPackageNames = ['org.apache.mxnet.internal.c_api.presets.*']
+    outputDirectory = file("$buildDir/generated/sources/javacpp/")
+}
+
+javacppBuildCompiler {
+    copyLibs = true
+}
+
+task copyLicenses(type: Copy) {
+    from(["$projectDir/..", "$projectDir/../tools/dependencies/"]) {
+        include 'DISCLAIMER-WIP'
+        include 'LICENSE'
+        include 'NOTICE'
+        include 'LICENSE.binary.dependencies'
+    }
+    into "$buildDir/resources/main/META-INF"
+}
+
+jar {
+    dependsOn copyLicenses
+    manifest {
+        attributes 'Class-Path': configurations.runtimeClasspath.collect { it.getName() }.join(' ')
+    }
+}
+
+javadoc {
+    failOnError = false
+    options.links = ['http://bytedeco.org/javacpp/apidocs']
+}
+
+//doesn't work with Gradle 5.x
+//java {
+//    withJavadocJar()
+//    withSourcesJar()
+//}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives javadocJar
+    archives sourcesJar
+}
+
+def pomClosure = {
+    name = 'Apache MXNet Java'
+    delegate.description = 'Apache MXNet Java package and language binding'
+    url = 'https://mxnet.apache.org/'
+    licenses {
+        license {
+            name = 'Apache License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0'
+            distribution = 'repo'
+        }
+    }
+    developers {
+        developer {
+            name = 'Contributors'
+            email = 'dev@mxnet.apache.org'
+            organization = 'Apache MXNet'
+            organizationUrl = 'https://mxnet.apache.org/'
+        }
+    }
+    scm {
+        url = 'https://github.com/apache/incubator-mxnet'
+        connection = 'scm:git:git://github.com/apache/incubator-mxnet.git'
+        developerConnection = 'scm:git:ssh://git@github.com/apache/incubator-mxnet.git'
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifacts = [jar, javacppJar, javadocJar, sourcesJar] +
+                        javacppBuild.existingArtifacts(configurations.javacppPlatform) +
+                        javacppBuild.existingArtifacts(configurations.javacppPlatformGpu)
+            pom pomClosure
+        }
+        mavenJavacppPlatform(MavenPublication) {
+            groupId project.group
+            artifactId project.name + "-platform"
+            artifacts = [javacppPlatformJar, javacppPlatformJavadocJar, javacppPlatformSourcesJar]
+            pom pomClosure
+            pom.withXml javacppBuild.xmlAction(configurations.javacppPlatform)
+        }
+        mavenJavacppPlatformGpu(MavenPublication) {
+            groupId project.group
+            artifactId project.name + "-platform-gpu"
+            artifacts = [javacppPlatformJar, javacppPlatformJavadocJar, javacppPlatformSourcesJar]
+            pom pomClosure
+            pom.withXml javacppBuild.xmlAction(configurations.javacppPlatformGpu, "-gpu")
+        }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
+            def snapshotsRepoUrl = 'https://repository.apache.org/content/groups/snapshots/'
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username System.getenv('CI_DEPLOY_USERNAME')
+                password System.getenv('CI_DEPLOY_PASSWORD')
+            }
+        }
+    }
+}
+
+signing {
+    useGpgCmd()
+    if (!version.endsWith('SNAPSHOT')) {
+        sign publishing.publications.mavenJava
+        sign publishing.publications.mavenJavacppPlatform
+        sign publishing.publications.mavenJavacppPlatformGpu
+    }
+}
