@@ -17,14 +17,19 @@
 
 # pylint: disable=unused-import, too-many-lines
 """Read images and perform augmentations for object detection."""
-
-
 import json
 import logging
 import random
 import warnings
-
 import numpy as np
+
+# 2020-06-02, mxnet 2.0.0
+warnings.warn(("mxnet.image.detection.* functions has been deprecated "
+               "and will be removed from a future release. "
+               "Please use gluon transform functions instead. "
+               "For example, you can replace `ImageDetIter` with "
+               "`gluon.contrib.data.vision.ImageBboxDataLoader`."),
+              DeprecationWarning, stacklevel=2)
 
 from ..base import numeric_types
 from .. import ndarray as nd

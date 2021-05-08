@@ -1342,6 +1342,11 @@ class ImageIter(io.DataIter):
                  shuffle=False, part_index=0, num_parts=1, aug_list=None, imglist=None,
                  data_name='data', label_name='softmax_label', dtype='float32',
                  last_batch_handle='pad', **kwargs):
+        # 2020-06-02, mxnet 2.0.0
+        warnings.warn(("mxnet.image.ImageIter has been deprecated "
+                       "and will be removed from a future release. "
+                       "Please use `gluon.contrib.data.vision.ImageDataLoader` instead. "),
+                      DeprecationWarning, stacklevel=2)
         super(ImageIter, self).__init__()
         assert path_imgrec or path_imglist or (isinstance(imglist, list))
         assert dtype in ['int32', 'float32', 'int64', 'float64'], dtype + ' label not supported'

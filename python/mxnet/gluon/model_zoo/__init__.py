@@ -17,6 +17,14 @@
 
 # coding: utf-8
 """Predefined and pretrained models."""
+import warnings
+
+# 2020-06-02, mxnet 2.0.0
+warnings.warn(("gluon.model_zoo has been deprecated and will be removed from a future release. "
+               "Please use install `gluoncv` or `gluonnlp` to retrieve the managed models "
+               "For example, you can replace existing code with "
+               "`gluoncv.model_zoo.get_model('resnet18_v1', pretrained=True)`."),
+              DeprecationWarning, stacklevel=2)
 
 from . import model_store
 
