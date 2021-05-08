@@ -73,14 +73,15 @@ set(USE_LAPACK ON CACHE BOOL "Build with lapack support")
 set(USE_TVM_OP OFF CACHE BOOL "Enable use of TVM operator build system.")
 
 #---------------------
-# Compilers
+# Compiler
 #--------------------
-# Compilers are usually autodetected. Uncomment and modify the next 3 lines to
-# choose manually:
+# CPU Architecture to optimize for. With default settings, your build may not
+# work on earlier CPUs than the one used by the system you are compiling on.
+# To work with older CPU, set the -march, -mtune variables below to the
+# respective architecture name of the target CPU (see GCC documentation).
 
-# set(CMAKE_C_COMPILER "" CACHE BOOL "C compiler")
-# set(CMAKE_CXX_COMPILER "" CACHE BOOL "C++ compiler")
-# set(CMAKE_CUDA_COMPILER "" CACHE BOOL "Cuda compiler (nvcc)")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native" CACHE STRING "C compiler flags")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native" CACHE STRING "C++ compiler flags")
 
 
 #---------------------------------------------

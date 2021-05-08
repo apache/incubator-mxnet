@@ -51,16 +51,6 @@ set(USE_LAPACK ON CACHE BOOL "Build with lapack support")
 
 set(USE_TVM_OP OFF CACHE BOOL "Enable use of TVM operator build system.")
 
-#---------------------
-# Compilers
-#--------------------
-# Compilers are usually autodetected. Uncomment and modify the next 3 lines to
-# choose manually:
-
-# set(CMAKE_C_COMPILER "" CACHE BOOL "C compiler")
-# set(CMAKE_CXX_COMPILER "" CACHE BOOL "C++ compiler")
-# set(CMAKE_CUDA_COMPILER "" CACHE BOOL "Cuda compiler (nvcc)")
-
 
 #---------------------------------------------
 # CPU instruction sets: The support is autodetected if turned ON
