@@ -36,7 +36,8 @@ static inline bool SupportMKLDNNFCEltwiseFusion(const std::string op_name) {
       op_name == "sqrt" ||
       op_name == "exp" ||
       op_name == "abs" ||
-      op_name == "clip") {
+      op_name == "clip" ||
+      op_name == "LeakyReLU") {
     return true;
   } else {
     return false;

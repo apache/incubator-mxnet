@@ -102,6 +102,16 @@ class SgMKLDNNFCSelector : public SubgraphSelector {
             return true;
           }
         }
+        if (new_node.op() == Op::Get("LeakyReLU")) {
+          const LeakyReLUParam &param = nnvm::get<LeakyReLUParam>(new_node.attrs.parsed);
+          if (param.act_type == leakyrelu::kLeakyReLU ||
+              param.act_type == leakyrelu::kELU ||
+              param.act_type == leakyrelu::kGELU) {
+            matched_list_.push_back(&new_node);
+            status_ = kSuccess;
+            return true;
+          }
+        }
         if (!quantized_ && (new_node.op() == Op::Get("square") ||
             new_node.op() == Op::Get("sqrt") ||
             new_node.op() == Op::Get("exp"))) {
