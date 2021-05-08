@@ -74,11 +74,14 @@ class NaiveEngine final : public Engine {
     LOG(INFO) << "Engine shutdown";
     for (size_t i = 0; i < streams_.size(); ++i) {
       if (streams_[i] != nullptr) {
+        // Catch exception for CUDA driver shutdown
+        MSHADOW_CATCH_ERROR(mshadow::DeleteStream(streams_[i]));
         streams_[i] = nullptr;
       }
     }
     for (size_t i = 0; i < aux_streams_.size(); ++i) {
       if (aux_streams_[i] != nullptr) {
+        delete aux_streams_[i];
         aux_streams_[i] = nullptr;
       }
     }

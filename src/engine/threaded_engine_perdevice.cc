@@ -273,6 +273,10 @@ class ThreadedEnginePerDevice : public ThreadedEngine {
     while (task_queue->Pop(&opr_block)) {
       this->ExecuteOprBlock(run_ctx, opr_block);
     }
+    // Catch exception for CUDA driver shutdown
+    MSHADOW_CATCH_ERROR(mshadow::DeleteStream<gpu>(stream));
+    if (aux_stream != nullptr)
+      delete aux_stream;
 #else
     ready_event->signal();
 #endif
