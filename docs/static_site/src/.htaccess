@@ -72,7 +72,7 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteCond %{REQUEST_FILENAME}/index.html -f
 RewriteRule ^(.*) $1/index.html [NC,L]
 
-# Redirect FAQ TODO: temporary fix for Github issue #18547
+# Redirect FAQ TODO: temporary fix for GitHub issue #18547
 RewriteRule ^versions/master/faq/(.*)$ /api/faq/$1 [R,NC,L]
 
 # 404

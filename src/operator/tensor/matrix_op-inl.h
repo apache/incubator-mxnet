@@ -369,7 +369,7 @@ bool TransposeCommonImpl(RunContext ctx,
       } else {
         LOG(FATAL) << "Not Implemented. We should never reach here because the 2D case "
                       "in GPU has been covered by transpose_pseudo2D."
-                      " Report an issue in Github.";
+                      " Report an issue in GitHub.";
       }
       break;
      }

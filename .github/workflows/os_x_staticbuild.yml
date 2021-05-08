@@ -30,7 +30,7 @@ jobs:
       - name: Install Dependencies
         run: |
           brew install nasm automake ninja libtool cmake pkgconfig protobuf hdf5 zlib ccache
-          ccache -M 500M  # Limit the ccache size; Github's overall cache limit is 5GB
+          ccache -M 500M  # Limit the ccache size; GitHub's overall cache limit is 5GB
           python -m pip install -r ci/docker/install/requirements
         shell: bash
 

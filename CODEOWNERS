@@ -71,5 +71,5 @@ prepare_mkl.sh    @szha
 # Tools
 /tools/           @szha @pllarroy
 
-# Github configuration
+# GitHub configuration
 /.github/         @szha @leezu

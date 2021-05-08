@@ -33,7 +33,7 @@ In MXNet, we have the following communication channels.
 
 | Channel | Purpose |
 |---|---|
-| [Follow MXNet Development on Github](#github-issues) | See what's going on in the MXNet project. |
+| [Follow MXNet Development on GitHub](#github-issues) | See what's going on in the MXNet project. |
 | [Check out the MXNet Confluence Wiki](https://cwiki.apache.org/confluence/display/MXNET/Apache+MXNet+Home) <i class="fas fa-external-link-alt"> | MXNet developer wiki for information related to project development, maintained by contributors and developers. To request write access, send an email to [send request to the dev list](mailto:dev@mxnet.apache.org?subject=Requesting%20CWiki%20write%20access) <i class="far fa-envelope"></i>. |
 | [dev@mxnet.apache.org mailing list](https://lists.apache.org/list.html?dev@mxnet.apache.org) | The "dev list". Discussions about the development of MXNet. To subscribe, send an email to [dev-subscribe@mxnet.apache.org](mailto:dev-subscribe@mxnet.apache.org) <i class="far fa-envelope"></i>. |
 | [discuss.mxnet.io](https://discuss.mxnet.io) <i class="fas fa-external-link-alt"></i> | Asking & answering MXNet usage questions. |
@@ -100,14 +100,14 @@ Any new features of improvements that are non-trivial should follow the [RFC](ht
 1. [Create an RFC issue on GitHub](https://github.com/apache/incubator-mxnet/issues/new/choose): RFC issues will notify MXNet developer community through all channels, including dev@ list and Slack.
 1. [Create the PR on GitHub](https://github.com/apache/incubator-mxnet/pulls) and mention the RFC issue in description.
 
-#### Github Issues
+#### GitHub Issues
 
-Apache MXNet uses Github issues to track feature requests and bug reports. [Open a Github issue](https://github.com/apache/incubator-mxnet/issues/new/choose) <i class="fas fa-external-link-alt"></i>.
+Apache MXNet uses GitHub issues to track feature requests and bug reports. [Open a GitHub issue](https://github.com/apache/incubator-mxnet/issues/new/choose) <i class="fas fa-external-link-alt"></i>.
 
-We also use Github projects for tracking larger projects, and Github milestones for tracking releases.
+We also use GitHub projects for tracking larger projects, and GitHub milestones for tracking releases.
 
-* [Github Projects](https://github.com/apache/incubator-mxnet/projects) <i class="fab fa-github"></i>
-* [Github Milestones](https://github.com/apache/incubator-mxnet/milestones) <i class="fab fa-github"></i>
+* [GitHub Projects](https://github.com/apache/incubator-mxnet/projects) <i class="fab fa-github"></i>
+* [GitHub Milestones](https://github.com/apache/incubator-mxnet/milestones) <i class="fab fa-github"></i>
 * [Roadmaps](https://github.com/apache/incubator-mxnet/labels/Roadmap) <i class="fab fa-github"></i>
 
 

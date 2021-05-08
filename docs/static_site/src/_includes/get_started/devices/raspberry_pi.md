@@ -129,7 +129,7 @@ cd ..
 
 We would like to simplify this setup by integrating the Conan C++ dependency
 manager. Please send an email to the MXNet development mailinglist or open an
-issue on Github if you would like to help.
+issue on GitHub if you would like to help.
 
 ### Building the Python wheel
 
@@ -157,7 +157,7 @@ rm -rf ${TMPDIR}
 
 We intend to fix the `setup.py` to avoid the repackaging step. If you would like
 to help, please send an email to the MXNet development mailinglist or open an
-issue on Github.
+issue on GitHub.
 
 
 ### Final remarks

@@ -1274,7 +1274,7 @@ class HybridBlock(Block):
 
         assert self._cached_op, "Gluon failed to build the cache. " \
                                 "This should never happen. " \
-                                "Please submit an issue on Github" \
+                                "Please submit an issue on GitHub" \
                                 " https://github.com/apache/incubator-mxnet."
         if self._callback:
             self._cached_op._register_op_hook(self._callback, self._monitor_all)
@@ -1388,7 +1388,7 @@ class HybridBlock(Block):
         self._build_cache(x, *args)
         assert self._cached_op, "Gluon failed to build the cache. " \
                                 "This should never happen. " \
-                                "Please submit an issue on Github" \
+                                "Please submit an issue on GitHub" \
                                 " https://github.com/apache/incubator-mxnet."
         # do not actually call the cached_op
 

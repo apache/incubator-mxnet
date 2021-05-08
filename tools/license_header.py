@@ -110,7 +110,7 @@ _WHITE_LIST = [
                # This file
                'tools/license_header.py',
 
-               # Github template
+               # GitHub template
                '.github/ISSUE_TEMPLATE/bug_report.md',
                '.github/ISSUE_TEMPLATE/feature_request.md',
                '.github/ISSUE_TEMPLATE/flaky_test.md',

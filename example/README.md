@@ -128,8 +128,8 @@ If your tutorial depends on specific packages, simply add them to this provision
 * [Face Detection with End-to-End Integration of a ConvNet and a 3D Model (ECCV16)](https://github.com/tfwu/FaceDetection-ConvNet-3D) by [tfwu](https://github.com/tfwu), source code for paper Yunzhu Li, Benyuan Sun, Tianfu Wu and Yizhou Wang, "Face Detection with End-to-End Integration of a ConvNet and a 3D Model", ECCV 2016 <https://arxiv.org/abs/1606.00850>
 * [End-to-End Chinese plate recognition base on MXNet](https://github.com/szad670401/end-to-end-for-chinese-plate-recognition) by [szad670401](https://github.com/szad670401)
 * [Reproduce ResNet-v2 (Identity Mappings in Deep Residual Networks) using MXNet](https://github.com/tornadomeet/ResNet) by [tornadomeet](https://github.com/tornadomeet)
-* [Learning similarity among images in MXNet](http://www.jianshu.com/p/70a66c8f73d3) by xlvector in Chinese. Github [link](https://github.com/xlvector/learning-dl/tree/master/mxnet/triple-loss)
-* [Matrix decomposition (SVD) with MXNet](http://www.jianshu.com/p/ebf7bf53ed3e) by xlvector in Chinese. Github [link](https://github.com/xlvector/mxnet/blob/svd/example/svd/svd.py)
+* [Learning similarity among images in MXNet](http://www.jianshu.com/p/70a66c8f73d3) by xlvector in Chinese. GitHub [link](https://github.com/xlvector/learning-dl/tree/master/mxnet/triple-loss)
+* [Matrix decomposition (SVD) with MXNet](http://www.jianshu.com/p/ebf7bf53ed3e) by xlvector in Chinese. GitHub [link](https://github.com/xlvector/mxnet/blob/svd/example/svd/svd.py)
 * [MultiGPU enabled image generative models (GAN and DCGAN)](https://github.com/tqchen/mxnet-gan) by [Tianqi Chen](https://github.com/tqchen)
 * [Deep reinforcement learning for playing flappybird by mxnet](https://github.com/li-haoran/DRL-FlappyBird) by LIHaoran
 * [Neural Style in Markov Random Field (MRF) and Perceptual Losses Realtime transfer](https://github.com/zhaw/neural_style) by [zhaw](https://github.com/zhaw)

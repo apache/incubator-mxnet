@@ -104,7 +104,7 @@ pad_array(nd.array([1, 2, 3]), max_length=10)
 `<NDArray 10 @cpu(0)>` <!--notebook-skip-line-->
 
 
-### Search for an operator on [Github](https://github.com/apache/incubator-mxnet/labels/Operator)
+### Search for an operator on [GitHub](https://github.com/apache/incubator-mxnet/labels/Operator)
 
 Apache MXNet community is responsive to requests, and everyone is welcomed to contribute new operators. Have in mind, that there is always a lag between new operators being merged into the codebase and release of a next stable version. For example, [nd.diag()](https://github.com/apache/incubator-mxnet/pull/11643) operator was recently introduced to Apache MXNet, but on the moment of writing this tutorial, it is not in any stable release. You can always get all latest implementations by installing the [master version](https://mxnet.apache.org/get_started?version=master&platform=linux&language=python&environ=pip&processor=cpu#) of Apache MXNet.
 

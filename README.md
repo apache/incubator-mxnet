@@ -100,7 +100,7 @@ Stay Connected
 
 | Channel | Purpose |
 |---|---|
-| [Follow MXNet Development on Github](https://github.com/apache/incubator-mxnet/issues) | See what's going on in the MXNet project. |
+| [Follow MXNet Development on GitHub](https://github.com/apache/incubator-mxnet/issues) | See what's going on in the MXNet project. |
 | [MXNet Confluence Wiki for Developers](https://cwiki.apache.org/confluence/display/MXNET/Apache+MXNet+Home) <i class="fas fa-external-link-alt"> | MXNet developer wiki for information related to project development, maintained by contributors and developers. To request write access, send an email to [send request to the dev list](mailto:dev@mxnet.apache.org?subject=Requesting%20CWiki%20write%20access) <i class="far fa-envelope"></i>. |
 | [dev@mxnet.apache.org mailing list](https://lists.apache.org/list.html?dev@mxnet.apache.org) | The "dev list". Discussions about the development of MXNet. To subscribe, send an email to [dev-subscribe@mxnet.apache.org](mailto:dev-subscribe@mxnet.apache.org) <i class="far fa-envelope"></i>. |
 | [discuss.mxnet.io](https://discuss.mxnet.io) <i class="fas fa-external-link-alt"></i> | Asking & answering MXNet usage questions. |
