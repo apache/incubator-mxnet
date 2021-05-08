@@ -96,21 +96,21 @@ by drawing random values with a uniform-distribution between −0.07 and 0.07 an
 updates the bias parameters by setting them all to 0.
 
 To initialize your network using different built-in types, you have to use the
-`init` keyword argument in the `initialize()` method. Here is an example using
-`constant` and `normal` initialization.
+`init` keyword argument in the `initialize()` method. If you have
+already initialized the weight but want to reinitialize the weight, set the
+`force_reinit` flag to `True`. Here is an example using
+`constant` and `normal` initialization. 
 
 ```{.python .input}
 from mxnet import init
 
 # Constant init initializes the weights to be a constant value for all the params
-net.initialize(init=init.Constant(3), ctx=ctx)
+net.initialize(init=init.Constant(3), force_reinit=True, ctx=ctx)
 print(net[0].weight.data()[0])
 ```
 
 If you use Normal to initialize your weights then you will use a normal
-distribution with a mean of zero and standard deviation of sigma. If you have
-already initialized the weight but want to reinitialize the weight, set the
-`force_reinit` flag to `True`.
+distribution with a mean of zero and standard deviation of sigma. 
 
 ```{.python .input}
 net.initialize(init=init.Normal(sigma=0.2), force_reinit=True, ctx=ctx)
