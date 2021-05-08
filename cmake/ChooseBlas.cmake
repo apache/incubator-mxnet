@@ -80,7 +80,7 @@ set(FORTRAN_DIR \\\"\$\{CMAKE_Fortran_IMPLICIT_LINK_DIRECTORIES\}\\\")
         COMMAND ${CMAKE_COMMAND} .
       )
       set(FORTRAN_DIR "")
-      include(build/temp/FortranDir.cmake)
+      include(${CMAKE_CURRENT_BINARY_DIR}/temp/FortranDir.cmake)
       find_library(FORTRAN_LIB NAMES gfortran HINTS ${FORTRAN_DIR})
       message("FORTRAN_DIR is ${FORTRAN_DIR}")
       message("FORTRAN_LIB is ${FORTRAN_LIB}")
