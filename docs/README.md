@@ -38,9 +38,7 @@ If you plan to contribute changes to the documentation or website, please submit
 
 MXNet's Python documentation is built with [Sphinx](https://www.sphinx-doc.org) and a variety of plugins including [pandoc](https://pandoc.org/), and [recommonmark](https://github.com/rtfd/recommonmark).
 
-More information on the dependencies can be found in the [CI folder's installation scripts](https://github.com/apache/incubator-mxnet/tree/master/ci/docker/install/ubuntu_docs.sh).
-
-You can run just the Python docs by following the instructions in the Python API guide.
+You can run just the Python docs by following the instructions in the `python_docs/README.md`.
 
 ## Other API Docs
 
@@ -48,112 +46,11 @@ The docs are hosted on the website in each language API's section. You can find 
 
 ## How to Build the MXNet Website for Development and QA
 
-`conda` or `miniconda` is recommended.
-* [Conda](https://www.anaconda.com/distribution/#download-section) (install to PATH)
-
-If you only need to make changes to tutorials or other pages that are not generated from one of the API source code folders, then you can use a basic Python pip or conda installation. But if you want edit the API source and have the reference API docs update, you also need to build MXNet from source. Refer to the build from source instructions for this requirement.
-
-
-### Ubuntu Setup
-
-As this is maintained for CI, Ubuntu is recommended. Refer to [ubuntu_doc.sh](https://github.com/apache/incubator-mxnet/tree/master/ci/docker/install/ubuntu_docs.sh) for the latest install script.
+If you only need to make changes to tutorials or other pages that are not generated from one of the API source code folders, then you can [install a pre-build MXNet binary](https://mxnet.apache.org/versions/master/get_started). But if you want edit the API source and have the reference API docs update, you also need to build MXNet from source. Refer to the [build from source instructions for this requirement](https://mxnet.apache.org/versions/master/get_started/build_from_source.html).
 
 ### Caveat for Rendering Outputs
 
 Note that without a GPU you will not be able to generate the docs with the outputs in the tutorials.
-
-### GPU setup
-To run the full build, including tests of all tutorials,
-**you will need at least two GPUs**.
-Distributed training is a key feature of MXNet,
-so multiple GPUs are required for running through every tutorial.
-* [CUDA 9.2](https://developer.nvidia.com/cuda-downloads)
-
-### CPU-only setup
-In the `environment.yml` file:
-* Change `mxnet-cu92` to `mxnet`.
-
-### macOS setup
-In the `environment.yml` file:
-* Change `mxnet-cu92` to `mxnet`. (There is no CUDA package for mac anyway.)
-
-### Windows Setup
-If you have a GPU and have installed CUDA 9.2 you can leave the MXNet dependency alone.
-Otherwise, in the `environment.yml` file:
-* Change `mxnet-cu92` to `mxnet`.
-
-Install recommended software:
-* [git bash](https://gitforwindows.org/)
-* Be sure to install `Conda` in `PATH`
-* Install `make` from a `git bash` terminal with Admin rights
-    - [Install chocolatey](https://chocolatey.org/install)
-    - Use `choco to install make`
-* Restart terminals after installations to make sure PATH is set.
-    - The `choco`, `make`, and `conda` commands should work in `git bash`.
-
-### Conda environment setup
-Run the following commands from the project root (`new-docs`) to setup the environment.
-
-```bash
-conda env create -f environment.yml
-source activate mxnet-docs
-```
-
-## Build the docs
-
-* Change directories to `new-docs/python`.
-
-To build without GPUs and without testing the notebooks (faster):
-
-```bash
-make EVAL=0
-```
-
-To build with testing the notebooks (requires GPU):
-
-```bash
-make
-```
-
-The build docs will be available at `build/_build/html`.
-
-Each build may take a few minutes even without evaluation. To accelerate it, we can use one of the following ways:
-
-1. open `build/conf.py`, add the folders you want to skip into `exclude_patterns`, such as `exclude_patterns = ['templates', 'api', 'develop', 'blog']`.
-2. move the files into a different folder, such as `mv api /tmp/`, and then `make clean`.
-
-## Check results
-
-To run a server to see the website:
-
-1. Start a http server: `cd build/_build/html; python -m http.server`
-2. For viewing a remote machine, ssh to your machine with port forwarding: `ssh -L8000:localhost:8000 your_machine`
-3. Open http://localhost:8000 in your local machine
-
-## Run tutorials
-
-In addition to view the built html pages, you can run the Jupyter notebook from a remote machine.
-1. Install `notedown` plugin: `pip install https://github.com/mli/notedown/tarball/master` in remote server
-2. Start Jupyter notebook `jupyter notebook --NotebookApp.contents_manager_class='notedown.NotedownContentsManager'` in remote server
-3. ssh to your machine with port forwarding: `ssh -L8888:localhost:8888 your_machine`
-4. Open http://localhost:8888 in your local machine and run the md files directly
-
-Optionally, one can run the following to launch the notedown plugin automatically when starting jupyter notebook.
-1. Generate the jupyter configure file `~/.jupyter/jupyter_notebook_config.py` if it
-is not existing by run `jupyter notebook --generate-config`
-2. Add `c.NotebookApp.contents_manager_class = 'notedown.NotedownContentsManager'` to `~/.jupyter/jupyter_notebook_config.py`
-3. Simply run `jupyter notebook`
-
-## Troubleshooting
-Dependencies and the setup steps for this website are changing often. Here are some troubleshooting tips.
-
-* You might need to update the environment for the latest modules.
-```bash
-conda env update -f environment.yml
-```
-
-The `-W` Sphinx option enforces "warnings as errors". This will help you debug your builds and get them through CI.
-**CI will not let a PR through if it breaks the website.** Refer to the [MXNet Developer wiki's documentation guide](https://cwiki.apache.org/confluence/display/MXNET/Documentation+Guide) for troubleshooting tips.
 
 
 ## Production Website Deployment Process

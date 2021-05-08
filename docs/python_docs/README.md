@@ -32,7 +32,7 @@ It is recommended that you read the MXNet developer wiki's info on [building the
 
 ## Setup
 
-The default configuration requires a GPU and CUDA 9.2 and expects Ubuntu.
+The default configuration requires a GPU and CUDA and expects Ubuntu.
 However, you may setup the website on macOS or Windows with or without a GPU.
 
 ### Prerequisites
@@ -93,3 +93,8 @@ Optionally, one can run the following to launch the notedown plugin automaticall
 is not existing by run `jupyter notebook --generate-config`
 2. Add `c.NotebookApp.contents_manager_class = 'notedown.NotedownContentsManager'` to `~/.jupyter/jupyter_notebook_config.py`
 3. Simply run `jupyter notebook`
+
+
+## Troubleshooting
+The `-W` Sphinx option enforces "warnings as errors". This will help you debug your builds and get them through CI.
+**CI will not let a PR through if it breaks the website.** Refer to the [MXNet Developer wiki's documentation guide](https://cwiki.apache.org/confluence/display/MXNET/Documentation+Guide) for troubleshooting tips.
