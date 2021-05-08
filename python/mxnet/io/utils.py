@@ -18,9 +18,12 @@
 """utility functions for io.py"""
 from collections import OrderedDict
 
+import warnings
 import numpy as np
 try:
-    import h5py
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FutureWarning)
+        import h5py
 except ImportError:
     h5py = None
 
