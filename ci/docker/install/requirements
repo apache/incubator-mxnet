@@ -19,7 +19,7 @@
 # the whole docker cache for the image
 
 # Required dependencies
-numpy>=1.17,<1.20.0
+numpy>=1.20.0
 requests>=2.20.0,<3
 graphviz<0.9.0,>=0.8.1
 contextvars;python_version<"3.7"
